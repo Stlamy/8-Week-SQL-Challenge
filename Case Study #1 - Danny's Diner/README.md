@@ -106,6 +106,22 @@ ON sales.product_id = menu.product_id
 GROUP BY sales.customer_id, menu.product_name
 ORDER BY first_order
 LIMIT 3;
+
+temp
+SELECT
+  	sub_q.customer_id
+    , menu.product_name
+FROM (
+	SELECT
+  		sales.customer_id
+  		, sales.product_id
+  	FROM dannys_diner.sales
+  	WHERE sales.order_date = MIN(sales.order_date)
+  	GROUP BY sales.customer_id, sales.order_date, sales.product_id
+) AS sub_q
+LEFT JOIN dannys_diner.menu
+ON sub_q.product_id = menu.product_id
+GROUP BY sub_q.customer_id, menu.product_name;
 ````
 
 #### Code Explanation
