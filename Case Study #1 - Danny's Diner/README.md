@@ -317,9 +317,9 @@ ORDER BY customer_id;
 | C           | 3         | 36        |
 
 From the resulting query, see the number and total spend by customer:
-- Customer A spent 40 on 3 items.
-- Customer B spent 40 on 3 items.
-- Customer C spent 36 on 3 items.
+- Customer A spent $40 on 3 items.
+- Customer B spent $40 on 3 items.
+- Customer C spent $36 on 3 items.
 
 ***
 
