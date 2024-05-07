@@ -97,43 +97,32 @@ Note: There is a simpler way of using COUNT(DISTINCT var_name) to determine the 
 
 ````sql
 SELECT
-  	sales.customer_id
-    , MIN(sales.order_date) AS first_order
-    , menu.product_name
-FROM dannys_diner.sales
-LEFT JOIN dannys_diner.menu
-ON sales.product_id = menu.product_id
-GROUP BY sales.customer_id, menu.product_name
-ORDER BY first_order
-LIMIT 3;
-
-temp
-SELECT
-  	sub_q.customer_id
-    , menu.product_name
-FROM (
-	SELECT
-  		sales.customer_id
-  		, sales.product_id
-  	FROM dannys_diner.sales
-  	WHERE sales.order_date = MIN(sales.order_date)
-  	GROUP BY sales.customer_id, sales.order_date, sales.product_id
-) AS sub_q
+	sub_q.customer_id
+	, menu.product_name
+FROM (SELECT 
+      sales.customer_id
+      , sales.product_id
+      , DENSE_RANK() OVER (ORDER BY sales.order_date) AS first_order
+      FROM dannys_diner.sales) AS sub_q
 LEFT JOIN dannys_diner.menu
 ON sub_q.product_id = menu.product_id
-GROUP BY sub_q.customer_id, menu.product_name;
+WHERE first_order = 1
+GROUP BY sub_q.customer_id, menu.product_name
+ORDER BY sub_q.customer_id;
 ````
 
 #### Code Explanation
-- Use the MIN statement to call the smallest observation found in the listed variable.
-- Use the LIMIT statement to cut the output to the first three observations 
+- Use DENSE_RANK() statement.
+	- [Referenced here](https://www.sqltutorial.org/sql-window-functions/sql-dense_rank/)
+ - 
 
 #### Answer
-| customer_id |  first_order             | product_name |
-| ----------- | ------------------------ | ------------ |
-| A           | 2021-01-01T00:00:00.000Z | curry        |
-| B           | 2021-01-01T00:00:00.000Z | curry        |
-| C           | 2021-01-01T00:00:00.000Z | ramen        |
+| customer_id |  product_name |
+| ----------- |  ------------ |
+| A           |  curry        |
+| A           |  sushi        |
+| B           |  curry        |
+| C           |  ramen        |
 
 ***
 
