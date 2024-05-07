@@ -214,7 +214,6 @@ WITH
 	ORDER BY members.customer_id, sales.order_date DESC)
 
 SELECT	customer_id
-	, first_order
         , menu.product_name
 FROM first_p
 LEFT JOIN dannys_diner.menu
@@ -224,7 +223,7 @@ ORDER BY customer_id;
 ````
 
 #### Code Explanation
-- WHERE statement defines which observations to filter observations that have an order_date before becoming a member.
+- WHERE statement defines which observations to filter observations that have an order_date before becoming a member. Particulary, we filter out observations to only those where order_date is greater than their member join_date.
  
 
 #### Answer
@@ -241,9 +240,91 @@ From the resulting query, the first item purchased by each customer after becomi
 
 **7. Which item was purchased just before the customer became a member?**
 
+Note: In continuity with problem 6, we assume that orders are made before the customer becomes a member when order_date = join_date.  
+
+````sql
+WITH
+	first_p AS 
+	(SELECT	members.*
+     		, sales.order_date
+     		, sales.product_id
+     		, DENSE_RANK() OVER (PARTITION BY members.customer_id
+				     ORDER BY sales.order_DATE DESC) AS first_order
+	FROM dannys_diner.members
+	LEFT JOIN dannys_diner.sales
+	ON members.customer_id = sales.customer_id
+	WHERE sales.order_date <= members.join_date
+	ORDER BY members.customer_id, sales.order_date DESC)
+
+SELECT	customer_id
+        , menu.product_name
+FROM first_p
+LEFT JOIN dannys_diner.menu
+ON first_p.product_id = menu.product_id
+WHERE first_order = 1
+ORDER BY customer_id;
+````
+
+#### Code Explanation
+- WHERE statement defines which observations to filter observations that have an order_date after becoming a member. Particulary, we filter out observations to only those where order_date is less than or equal to their member join_date.
+ 
+
+#### Answer
+| customer_id |  product_name |
+| ----------- |  ------------ |
+| A           |  curry        |
+| B           |  sushi        |
+
+From the resulting query, the item purchased by each customer just before becoming a member was:
+- Customer A: 'curry'.
+- Customer B: 'sushi'.
+
+***
+
 **8. What is the total items and amount spent for each member before they became a member?**
 
+````sql
+WITH
+	before_mem AS 
+	(SELECT	sales.*
+	FROM dannys_diner.sales
+	LEFT JOIN dannys_diner.members
+	ON sales.customer_id = members.customer_id
+	WHERE sales.order_date <= members.join_date OR
+	      members.join_date IS NULL
+	ORDER BY members.customer_id)
+
+SELECT	customer_id
+        , COUNT(menu.price) AS tot_count
+        , SUM(menu.price) AS tot_spend
+FROM before_mem
+LEFT JOIN dannys_diner.menu
+ON before_mem.product_id = menu.product_id
+GROUP BY customer_id
+ORDER BY customer_id;
+````
+
+#### Code Explanation
+- There is an OR statement in the WHERE condition when constructing the CTE, which keeps all observations for customer C, since all of their observations are being dropped with NULL join_date.
+ 
+
+#### Answer
+
+| customer_id | tot_count | tot_spend |
+| ----------- | --------- | --------- |
+| A           | 3         | 40        |
+| B           | 3         | 40        |
+| C           | 3         | 36        |
+
+From the resulting query, see the number and total spend by customer:
+- Customer A spent 40 on 3 items.
+- Customer B spent 40 on 3 items.
+- Customer C spent 36 on 3 items.
+
+***
+
 **9. If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?**
+
 
 **10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?**
 
