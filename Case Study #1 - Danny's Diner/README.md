@@ -431,10 +431,7 @@ LEFT JOIN dannys_diner.members
 ON sales.customer_id = members.customer_id
 ORDER BY customer_id, order_date;
 ````
-
-#### Code Explanation
-- Now including an OR statement to determine whether an order was made within a week of the join_date to earn x2 points on all items, not just "sushi". Observations without a join_date, order_date after '2021-02-01', or order_date on or after join_date were excluded. The last variable is consistent with prior answers that exclude orders made on the same day as join_date.
- 
+ Note: DATE_TRUNC is not correctly removing the timestamp from the order_date variable output down below. Unsure whether this is due to the SQL module used, or an error in code. 
 
 #### Answer
 
