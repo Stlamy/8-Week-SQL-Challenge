@@ -325,7 +325,136 @@ From the resulting query, see the number and total spend by customer:
 
 **9. If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?**
 
+````sql
+WITH
+	dol_spent AS 
+	(SELECT	sales.customer_id
+     		, menu.price
+     		, CASE 
+     			WHEN sales.product_id = 1 THEN 2 * 10 * menu.price
+     			ELSE 10 * menu.price
+            	END AS tot_points
+	FROM dannys_diner.sales
+	LEFT JOIN dannys_diner.menu
+	ON sales.product_id = menu.product_id)
+
+SELECT	customer_id
+        , SUM(tot_points) AS points_earned
+FROM dol_spent
+GROUP BY customer_id
+ORDER BY customer_id;
+````
+
+#### Code Explanation
+- Use the CASE statement with WHEN to create new variable "tot_points" based on the contents of sales.product_id and menu.price since "sushi" earns x2 points per dollar spent, while "ramen" and "curry" earn only x1. This variable is then summed by customer_id to estimate the total number of points that each customer could have earned if they were a member.
+ 
+
+#### Answer
+
+| customer_id | points_earned |
+| ----------- | ------------- |
+| A           | 860           |
+| B           | 940           |
+| C           | 360           |
+
+From the resulting query, see the total points each customer could have earned if they were members at Danny's Diner:
+- Customer A could have earned 860 points.
+- Customer B could have earned 940 points.
+- Customer C could have earned 360 points.
+
+***
 
 **10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?**
 
+Note: Does not assume that customers receive 
+
+````sql
+WITH
+	dol_spent AS 
+	(SELECT	sales.customer_id
+     		, menu.price
+     		, CASE 
+     			WHEN sales.product_id = 1 
+     				OR sales.order_date < members.join_date + INTERVAL '7 DAY' THEN 2 * 10 * menu.price
+     			ELSE 10 * menu.price
+            	END AS tot_points
+	FROM dannys_diner.sales
+	LEFT JOIN dannys_diner.menu
+	ON sales.product_id = menu.product_id
+    LEFT JOIN dannys_diner.members
+	ON sales.customer_id = members.customer_id
+    WHERE sales.order_date < DATE('2021-02-01') 
+     		AND members.join_date IS NOT NULL
+    		AND sales.order_date > members.join_date)
+
+SELECT	customer_id
+        , SUM(tot_points) AS points_earned
+FROM dol_spent
+GROUP BY customer_id
+ORDER BY customer_id;
+````
+
+#### Code Explanation
+- Now including an OR statement to determine whether an order was made within a week of the join_date to earn x2 points on all items, not just "sushi". Observations without a join_date, order_date after '2021-02-01', or order_date on or after join_date were excluded. The last variable is consistent with prior answers that exclude orders made on the same day as join_date.
+ 
+
+#### Answer
+
+| customer_id | points_earned |
+| ----------- | ------------- |
+| A           | 720           |
+| B           | 320           |
+
+From the resulting query, see the total points each customer earned as a member at Danny's Diner:
+- Customer A earned a total of 720 points.
+- Customer B earned a total of 320 points.
+
+***
+
 ### Bonus Questions
+** Join All the Things **
+
+#### Question: Recreate a table with the following columns: customer_id (string), order_date (date), product_name (string), price (integer), and member (boolean).
+````sql
+SELECT	sales.customer_id
+	, DATE_TRUNC('day', sales.order_date)::date AS order_date
+	, menu.product_name
+	, menu.price
+	, CASE 
+		WHEN sales.order_date >= members.join_date AND members.join_date IS NOT NULL THEN 'Y'
+		ELSE 'N'
+            	END AS member
+FROM dannys_diner.sales
+LEFT JOIN dannys_diner.menu
+ON sales.product_id = menu.product_id
+LEFT JOIN dannys_diner.members
+ON sales.customer_id = members.customer_id
+ORDER BY customer_id, order_date;
+````
+
+#### Code Explanation
+- Now including an OR statement to determine whether an order was made within a week of the join_date to earn x2 points on all items, not just "sushi". Observations without a join_date, order_date after '2021-02-01', or order_date on or after join_date were excluded. The last variable is consistent with prior answers that exclude orders made on the same day as join_date.
+ 
+
+#### Answer
+
+| customer_id | order_date               | product_name | price | member |
+| ----------- | ------------------------ | ------------ | ----- | ------ |
+| A           | 2021-01-01T00:00:00.000Z | sushi        | 10    | N      |
+| A           | 2021-01-01T00:00:00.000Z | curry        | 15    | N      |
+| A           | 2021-01-07T00:00:00.000Z | curry        | 15    | Y      |
+| A           | 2021-01-10T00:00:00.000Z | ramen        | 12    | Y      |
+| A           | 2021-01-11T00:00:00.000Z | ramen        | 12    | Y      |
+| A           | 2021-01-11T00:00:00.000Z | ramen        | 12    | Y      |
+| B           | 2021-01-01T00:00:00.000Z | curry        | 15    | N      |
+| B           | 2021-01-02T00:00:00.000Z | curry        | 15    | N      |
+| B           | 2021-01-04T00:00:00.000Z | sushi        | 10    | N      |
+| B           | 2021-01-11T00:00:00.000Z | sushi        | 10    | Y      |
+| B           | 2021-01-16T00:00:00.000Z | ramen        | 12    | Y      |
+| B           | 2021-02-01T00:00:00.000Z | ramen        | 12    | Y      |
+| C           | 2021-01-01T00:00:00.000Z | ramen        | 12    | N      |
+| C           | 2021-01-01T00:00:00.000Z | ramen        | 12    | N      |
+| C           | 2021-01-07T00:00:00.000Z | ramen        | 12    | N      |
+
+***
+
