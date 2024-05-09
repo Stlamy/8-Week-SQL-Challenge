@@ -11,7 +11,7 @@
 Thanks to Danny for sharing this challenge. You can find the questions and schema used in [this link](https://8weeksqlchallenge.com/case-study-2/).
 
 ## Business Task
-Danny needs an initial seed funding to start a new "Pizza Empire". But since he isn't able to earn all of the seed funding by selling pizza alone, he combined it with an "Uber" delivery service alongside the pizza store. Danny recruited "runners" to deliver pizza from headquarters and maxed out his credit card to pay freelance developers to build a mobile app to accept orders from customers. Danny has provided us with the following six tables to answer his questions: runner_orders, runners, customer_orders, pizza_names, pizza_recipes, and pizza_toppings.
+Danny needs initial seed funding to start a new "Pizza Empire". But since he isn't able to earn all of the seed funding by selling pizza alone, he combined it with an "Uber" delivery service alongside the pizza store. Danny recruited "runners" to deliver pizza from headquarters and maxed out his credit card to pay freelance developers to build a mobile app to accept orders from customers. Danny has provided us with the following six tables to answer his questions: runner_orders, runners, customer_orders, pizza_names, pizza_recipes, and pizza_toppings.
 
 ***
 
@@ -43,7 +43,7 @@ To clean the 'customer_orders' table:
 ````sql
 CREATE TEMP TABLE customer_orders_fix AS
   SELECT
-  	order_id
+    order_id
     , customer_id
     , pizza_id
     , CASE
@@ -63,7 +63,7 @@ To clean the 'runner_orders' table:
 ````sql
 CREATE TEMP TABLE runner_orders_fix AS
   SELECT
-  	order_id
+    order_id
     , runner_id
     , pickup_time
     , CASE
@@ -141,7 +141,7 @@ From the resulting query, there were a total of 5 unique customer orders made.
 
 ````sql
 SELECT
-	runner_id
+    runner_id
     , COUNT(order_id) AS successful_order
 FROM runner_orders_fix
 WHERE cancellation IS NULL
@@ -170,7 +170,7 @@ From the resulting query, there were a total of 8 successful runner orders.
 
 ````sql
 SELECT
-	  pizza_names.pizza_name
+    pizza_names.pizza_name
     , COUNT(customer_orders_fix.pizza_id) AS successful_order
 FROM runner_orders_fix
 LEFT JOIN customer_orders_fix
