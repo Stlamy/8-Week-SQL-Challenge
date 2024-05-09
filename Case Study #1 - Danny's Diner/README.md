@@ -8,6 +8,8 @@
 
 ***
 
+Thanks to Danny for sharing this challenge. You can find the questions and schema used in [this link](https://8weeksqlchallenge.com/case-study-1/).
+
 ## Business Task
 Danny has a restaurant that sells his three favorite foods: sushi, curry, and ramen. He wants to know his customer's visiting patterns, money spent, and favourite menu items in order to decide whether he should expand the existing customer loyalty program. Danny has provided us with the following three tables to answer his questions.
 
@@ -455,3 +457,59 @@ ORDER BY customer_id, order_date;
 
 ***
 
+** Rank All Things **
+
+#### Question: Recreate a table with the following columns: customer_id (string), order_date (date), product_name (string), price (integer), member (boolean), and ranking (integer).
+
+````sql
+WITH ranking_table AS	(
+  SELECT DISTINCT	sales.customer_id
+  			, sales.order_date
+  			, DENSE_RANK() OVER
+  				(PARTITION BY sales.customer_id ORDER BY sales.order_date) AS ranking
+  FROM dannys_diner.sales
+  LEFT JOIN dannys_diner.members
+  ON sales.customer_id = members.customer_id
+  WHERE sales.order_date >= members.join_date)
+
+SELECT	sales.customer_id
+		, DATE_TRUNC('day', sales.order_date)::date AS order_date
+		, menu.product_name
+		, menu.price
+		, CASE 
+			WHEN sales.order_date >= members.join_date AND members.join_date IS NOT NULL THEN 'Y'
+			ELSE 'N'
+            	END AS member
+    	, ranking_table.ranking
+FROM dannys_diner.sales
+LEFT JOIN dannys_diner.menu
+ON sales.product_id = menu.product_id
+LEFT JOIN dannys_diner.members
+ON sales.customer_id = members.customer_id
+LEFT JOIN ranking_table
+ON sales.customer_id = ranking_table.customer_id AND sales.order_date = ranking_table.order_date
+ORDER BY customer_id, order_date;
+````
+ Note: DATE_TRUNC is not correctly removing the timestamp from the order_date variable output down below. Unsure whether this is due to the SQL module used, or an error in code. 
+
+#### Answer
+
+| customer_id | order_date               | product_name | price | member | ranking |
+| ----------- | ------------------------ | ------------ | ----- | ------ | ------- |
+| A           | 2021-01-01T00:00:00.000Z | curry        | 15    | N      | null    |
+| A           | 2021-01-01T00:00:00.000Z | sushi        | 10    | N      | null    |
+| A           | 2021-01-07T00:00:00.000Z | curry        | 15    | Y      | 1       |
+| A           | 2021-01-10T00:00:00.000Z | ramen        | 12    | Y      | 2       |
+| A           | 2021-01-11T00:00:00.000Z | ramen        | 12    | Y      | 3       |
+| A           | 2021-01-11T00:00:00.000Z | ramen        | 12    | Y      | 3       |
+| B           | 2021-01-01T00:00:00.000Z | curry        | 15    | N      | null    |
+| B           | 2021-01-02T00:00:00.000Z | curry        | 15    | N      | null    |
+| B           | 2021-01-04T00:00:00.000Z | sushi        | 10    | N      | null    |
+| B           | 2021-01-11T00:00:00.000Z | sushi        | 10    | Y      | 1       |
+| B           | 2021-01-16T00:00:00.000Z | ramen        | 12    | Y      | 2       |
+| B           | 2021-02-01T00:00:00.000Z | ramen        | 12    | Y      | 3       |
+| C           | 2021-01-01T00:00:00.000Z | ramen        | 12    | N      | null    |
+| C           | 2021-01-01T00:00:00.000Z | ramen        | 12    | N      | null    |
+| C           | 2021-01-07T00:00:00.000Z | ramen        | 12    | N      | null    |
+
+***
