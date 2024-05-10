@@ -47,12 +47,14 @@ CREATE TEMP TABLE customer_orders_fix AS
     , customer_id
     , pizza_id
     , CASE
-    	WHEN exclusions = '' THEN NULL
+    	WHEN exclusions = ''
+        	OR exclusions = 'null' THEN NULL
         	ELSE exclusions
         END AS exclusions
     , CASE
     	WHEN extras = ''
-        	OR extras = 'NaN' THEN NULL
+        	OR extras = 'NaN' 
+            OR extras = 'null' THEN NULL
         	ELSE extras
         END AS extras
     , order_time
@@ -194,5 +196,125 @@ ORDER BY pizza_names.pizza_name;
 From the resulting query, there were a total of 12 pizzas that were successfully delivered.
 - 9 Meatlovers pizzas were successful delivered.
 - 3 Vegetarian pizzas were successful delivered.
+
+***
+
+**5. How many Vegetarian and Meatlovers were ordered by each customer?**
+
+````sql
+WITH count_meat AS (
+	SELECT
+		customer_id
+  		, COUNT(pizza_id) AS orders_meat
+  	FROM customer_orders_fix
+  	WHERE pizza_id = 1
+	GROUP BY customer_id)
+    , count_veg AS (
+	SELECT
+  		customer_id
+  		, COUNT(pizza_id) AS orders_veg
+  	FROM customer_orders_fix
+  	WHERE pizza_id = 2
+	GROUP BY customer_id)
+
+SELECT DISTINCT
+    count_meat.customer_id
+    , count_meat.orders_meat
+    , count_veg.orders_veg
+FROM count_meat
+LEFT JOIN count_veg
+ON count_meat.customer_id = count_veg.customer_id;
+````
+
+#### Answer
+
+| customer_id | orders_meat | orders_veg |
+| ----------- | ----------- | ---------- |
+| 101         | 2           | 1          |
+| 102         | 2           | 1          |
+| 103         | 3           | 1          |
+| 104         | 3           | null       |
+| 105         | null        | 1          |
+
+---
+
+From the resulting query, observe the following pizza orders by customer.
+- Customer 101 ordered 2 Meatlovers and 1 Vegetable.
+- Customer 102 ordered 2 Meatlovers and 1 Vegetable.
+- Customer 103 ordered 3 Meatlovers and 1 Vegetable.
+- Customer 104 ordered 3 Meatlovers and no Vegetable.
+
+***
+
+**6. What was the maximum number of pizzas delivered in a single order?**
+
+````sql
+
+````
+
+#### Answer
+
+---
+
+From the resulting query, observe a max order of 3 pizzas from a single order.
+
+***
+
+**7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?**
+
+````sql
+SELECT
+    customer_id
+    , SUM(CASE 
+        WHEN exclusions IS NOT NULL OR extras IS NOT NULL 
+        THEN 1
+		ELSE 0 END) AS pizza_changes
+    , SUM(CASE 
+          WHEN exclusions IS NULL AND extras IS NULL 
+          THEN 1
+		ELSE 0 END) AS pizza_nochanges
+FROM customer_orders_fix
+GROUP BY customer_id
+ORDER BY customer_id;
+````
+
+#### Answer
+
+| customer_id | pizza_changes | pizza_nochanges |
+| ----------- | ------------- | --------------- |
+| 101         | 0             | 3               |
+| 102         | 0             | 3               |
+| 103         | 4             | 0               |
+| 104         | 2             | 1               |
+| 105         | 1             | 0               |
+
+---
+
+From the resulting query, there are 7 pizzas with changes and 7 with no changes. Specifically:
+- Customer 101 ordered 0 pizzas with changes and 3 pizzas with no changes.
+- Customer 102 ordered 0 pizzas with changes and 3 pizzas with no changes.
+- Customer 103 ordered 4 pizzas with changes and 0 pizzas with no changes.
+- Customer 104 ordered 2 pizzas with changes and 1 pizzas with no changes.
+- Customer 105 ordered 1 pizzas with changes and 0 pizzas with no changes.
+
+***
+
+**8. How many pizzas were delivered that had both exclusions and extras?**
+
+````sql
+
+````
+
+#### Answer
+
+
+---
+
+From the resulting query, there are 7 pizzas with changes and 7 with no changes. Specifically:
+- Customer 101 ordered 0 pizzas with changes and 3 pizzas with no changes.
+- Customer 102 ordered 0 pizzas with changes and 3 pizzas with no changes.
+- Customer 103 ordered 4 pizzas with changes and 0 pizzas with no changes.
+- Customer 104 ordered 2 pizzas with changes and 1 pizzas with no changes.
+- Customer 105 ordered 1 pizzas with changes and 0 pizzas with no changes.
 
 ***
