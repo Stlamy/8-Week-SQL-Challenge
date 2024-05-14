@@ -81,6 +81,8 @@ CREATE TEMP TABLE runner_orders_fix AS
         	THEN REPLACE(duration, 'minute', '')
         WHEN duration LIKE '%mins%'
         	THEN REPLACE(duration, 'mins', '')
+        WHEN duration LIKE 'null'
+        	THEN NULL
         ELSE duration END AS duration
     , CASE
     	WHEN cancellation = '' OR cancellation = 'NaN' OR cancellation = 'null' THEN NULL
@@ -419,3 +421,40 @@ From the resulting query, observe the runner registrations for each week:
 - There is 1 runner that registered on the 2nd week.
 
 ***
+
+**2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?**
+
+````sql
+WITH pickup_time AS (
+  SELECT runner_id
+  		 , order_id
+  		 , pickup_time::int
+  FROM runner_orders_fix
+  WHERE pickup_time IS NOT NULL)
+
+SELECT	pickup_time.runner_id
+		, AVG(pickup_time.pickup_time - customer_orders_fix.order_time) AS avg_minutes
+FROM pickup_time
+LEFT JOIN customer_orders_fix
+ON pickup_time.order_id = customer_orders_fix.order_id
+GROUP BY runner_id
+ORDER BY runner_id;
+````
+
+#### Answer
+
+| week_num | runners_sign_up |
+| -------- | --------------- |
+| 53       | 2               |
+| 1        | 1               |
+| 2        | 1               |
+
+---
+
+From the resulting query, observe the runner registrations for each week:
+- There are 2 runners that registered on the 53rd week.
+- There is 1 runner that registered on the 1st week.
+- There is 1 runner that registered on the 2nd week.
+
+***
+
