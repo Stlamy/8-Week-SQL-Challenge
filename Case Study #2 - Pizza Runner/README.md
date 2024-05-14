@@ -302,19 +302,120 @@ From the resulting query, there are 7 pizzas with changes and 7 with no changes.
 **8. How many pizzas were delivered that had both exclusions and extras?**
 
 ````sql
-
+WITH total_count AS (
+  SELECT	customer_orders_fix.*
+		, CASE
+			WHEN customer_orders_fix.extras IS NOT NULL
+			AND customer_orders_fix.exclusions IS NOT NULL
+			THEN 1
+			ELSE 0 END AS all_change
+  FROM customer_orders_fix
+  LEFT JOIN runner_orders_fix
+  ON customer_orders_fix.order_id = runner_orders_fix.order_id
+  WHERE runner_orders_fix.cancellation IS NULL)
+  
+SELECT	SUM(all_change) AS total_orders
+FROM total_count;
 ````
 
 #### Answer
 
+| total_orders |
+| ------------ |
+| 1            |
 
 ---
 
-From the resulting query, there are 7 pizzas with changes and 7 with no changes. Specifically:
-- Customer 101 ordered 0 pizzas with changes and 3 pizzas with no changes.
-- Customer 102 ordered 0 pizzas with changes and 3 pizzas with no changes.
-- Customer 103 ordered 4 pizzas with changes and 0 pizzas with no changes.
-- Customer 104 ordered 2 pizzas with changes and 1 pizzas with no changes.
-- Customer 105 ordered 1 pizzas with changes and 0 pizzas with no changes.
+From the resulting query, there is 1 successfully delivered pizza that has both extra and exceptions made to the order.
+
+***
+
+**9. What was the total volume of pizzas ordered for each hour of the day?**
+
+````sql
+SELECT	EXTRACT(HOUR FROM order_time) as order_hour
+	, COUNT(order_id) AS hourly_orders
+FROM customer_orders_fix
+GROUP BY order_hour
+ORDER BY order_hour;
+````
+
+#### Answer
+
+| order_hour | hourly_orders |
+| ---------- | ------------- |
+| 11         | 1             |
+| 13         | 3             |
+| 18         | 3             |
+| 19         | 1             |
+| 21         | 3             |
+| 23         | 3             |
+
+---
+
+From the resulting query, observe the following orders made by hour:
+- There are 1 pizzas ordered at hour 11.
+- There are 3 pizzas ordered at hour 13.
+- There are 3 pizzas ordered at hour 18.
+- There are 1 pizzas ordered at hour 19.
+- There are 3 pizzas ordered at hour 21.
+- There are 3 pizzas ordered at hour 23.
+
+***
+
+**10. What was the volume of orders for each day of the week?**
+
+````sql
+SELECT	to_char(order_time, 'Day') as order_day
+		, COUNT(order_id) AS orders_by_day
+FROM customer_orders_fix
+GROUP BY order_day
+ORDER BY order_day;
+````
+
+#### Answer
+
+| order_day | orders_by_day |
+| --------- | ------------- |
+| Friday    | 1             |
+| Saturday  | 5             |
+| Thursday  | 3             |
+| Wednesday | 5             |
+
+---
+
+From the resulting query, observe the following orders made by day of the week:
+- There are 1 pizzas ordered on Fridays.
+- There are 5 pizzas ordered on Saturdays.
+- There are 3 pizzas ordered on Thursdays.
+- There are 5 pizzas ordered on Wednesdays.
+
+***
+
+### B. Runner and Customer Experience
+
+**1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)**
+
+````sql
+SELECT	DATE_PART('week', runners.registration_date) AS week_num
+        , COUNT(runners.runner_id) AS runners_sign_up
+FROM pizza_runner.runners
+GROUP BY week_num;
+````
+
+#### Answer
+
+| week_num | runners_sign_up |
+| -------- | --------------- |
+| 53       | 2               |
+| 1        | 1               |
+| 2        | 1               |
+
+---
+
+From the resulting query, observe the runner registrations for each week:
+- There are 2 runners that registered on the 53rd week.
+- There is 1 runner that registered on the 1st week.
+- There is 1 runner that registered on the 2nd week.
 
 ***
