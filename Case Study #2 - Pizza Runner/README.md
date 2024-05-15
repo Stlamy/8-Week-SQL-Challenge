@@ -5,6 +5,10 @@
 - [Business Task](#business-task)
 - [Entity Relationship Diagram](#entity-relationship-diagram)
 - [Solutions](#solutions)
+	- [A. Pizza Metrics](#pizza-metrics)
+   	- [B. Runner and Customer Experience](#runner-customer-experience)
+   	- [C. Ingredient Optimisation](#ingredient-optimisation)
+   	- [D. Pricing and Ratings](#pricing-ratings)
 
 ***
 
@@ -574,5 +578,92 @@ FROM times_delivery;
 ---
 
 From the resulting query, the time difference between the longest and shortest delivery times for all non-null orders is 30 minutes.
+
+***
+
+**6. What was the average speed for each runner for each delivery and do you notice any trend for these values?**
+
+````sql
+WITH delivery_speed AS (
+  SELECT runner_id
+  		 , order_id
+  		 , distance::numeric
+ 		 , duration::numeric
+  FROM runner_orders_fix
+  WHERE duration IS NOT NULL
+)
+
+SELECT
+	runner_id
+    , order_id
+    , ROUND(AVG(distance), 2) AS delivery_distance
+    , ROUND(AVG(duration / 60), 2) AS delivery_time
+    , ROUND(SUM(distance) / (SUM(duration) / 60), 2) AS delivery_speed
+FROM delivery_speed
+GROUP BY runner_id, order_id
+ORDER BY runner_id, order_id;
+````
+
+#### Answer
+
+| runner_id | order_id | delivery_distance | delivery_time | delivery_speed |
+| --------- | -------- | ----------------- | ------------- | -------------- |
+| 1         | 1        | 20.00             | 0.53          | 37.50          |
+| 1         | 2        | 20.00             | 0.45          | 44.44          |
+| 1         | 3        | 13.40             | 0.33          | 40.20          |
+| 1         | 10       | 10.00             | 0.17          | 60.00          |
+| 2         | 4        | 23.40             | 0.67          | 35.10          |
+| 2         | 7        | 25.00             | 0.42          | 60.00          |
+| 2         | 8        | 23.40             | 0.25          | 93.60          |
+| 3         | 5        | 10.00             | 0.25          | 40.00          |
+
+---
+
+From the resulting query, one can observe that in general, runner 2 was faster in making deliveries compared to runners 1 and 3. There are a few possible reasons as to why runner 2 is faster compared to the others, such as making deliveries by car vs. bike, familiarity with the neighborhood, etc.. 
+
+***
+
+**7. What is the successful delivery percentage for each runner?**
+
+````sql
+WITH successful_deliveries AS (
+  SELECT runner_id
+	 , CASE
+	 WHEN cancellation IS NULL THEN 1
+	 ELSE 0 END AS success
+  FROM runner_orders_fix
+)
+,	calculations AS (
+  SELECT runner_id
+	 , SUM(success)::numeric AS deliveries_success
+	 , COUNT(success)::numeric AS deliveries_total
+  FROM successful_deliveries
+  GROUP BY runner_id
+  ORDER BY runner_id
+)
+
+SELECT
+	runner_id
+	, deliveries_success
+	, deliveries_total
+	, ROUND((deliveries_success/deliveries_total) * 100, 0) AS success_rate 
+FROM calculations
+ORDER BY runner_id;
+````
+
+#### Answer
+
+| runner_id | deliveries_success | deliveries_total | success_rate |
+| --------- | ------------------ | ---------------- | ------------ |
+| 1         | 4                  | 4                | 100          |
+| 2         | 3                  | 4                | 75           |
+| 3         | 1                  | 2                | 50           |
+
+---
+
+From the resulting query, observe the following:
+- Runner 1 successfully completed 100% of their orders.
+- Runner 2 successfully completed 75% of their orders.
+- Runner 3 successfully completed 50% of their orders.
 
 ***
