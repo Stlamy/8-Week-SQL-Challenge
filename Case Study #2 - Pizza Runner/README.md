@@ -667,3 +667,187 @@ From the resulting query, observe the following:
 - Runner 3 successfully completed 50% of their orders.
 
 ***
+
+### C. Ingredient Optimisation
+
+**1. What are the standard ingredients for each pizza?**
+
+````sql
+WITH temp_ing AS (
+  SELECT
+  	pizza_id
+  	, UNNEST(STRING_TO_ARRAY(toppings, ', '))::int AS n_toppings
+  FROM pizza_runner.pizza_recipes
+)
+
+SELECT
+	temp_ing.pizza_id
+	, pizza_toppings.topping_name
+FROM temp_ing
+LEFT JOIN pizza_runner.pizza_toppings
+ON temp_ing.n_toppings = pizza_toppings.topping_id
+ORDER BY temp_ing.pizza_id, temp_ing.n_toppings;
+````
+
+#### Code Explanation
+Used the new statements 'UNNEST' and 'STRING_TO_ARRAY' to 'explode' the numbers in the 'toppings' column in table pizza_recipes. UNNEST takes an array and returns a table with a row for each element in the array, while the STRING_TO_ARRAY splits the string in the original 'toppings' observation using the delimiter ','.
+
+#### Answer
+
+| pizza_id | topping_name |
+| -------- | ------------ |
+| 1        | Bacon        |
+| 1        | BBQ Sauce    |
+| 1        | Beef         |
+| 1        | Cheese       |
+| 1        | Chicken      |
+| 1        | Mushrooms    |
+| 1        | Pepperoni    |
+| 1        | Salami       |
+| 2        | Cheese       |
+| 2        | Mushrooms    |
+| 2        | Onions       |
+| 2        | Peppers      |
+| 2        | Tomatoes     |
+| 2        | Tomato Sauce |
+
+---
+
+***
+
+**2. What was the most commonly added extra?**
+
+````sql
+WITH temp_extras AS (
+  SELECT
+  	UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
+  FROM customer_orders_fix
+  WHERE extras IS NOT NULL
+)
+
+SELECT
+	pizza_toppings.topping_name
+    	, COUNT(n_extras) AS freq
+FROM temp_extras
+LEFT JOIN pizza_runner.pizza_toppings
+ON n_extras = pizza_toppings.topping_id
+GROUP BY pizza_toppings.topping_name
+ORDER BY freq DESC
+LIMIT 1;
+````
+
+
+#### Answer
+
+| topping_name | freq |
+| ------------ | ---- |
+| Bacon        | 4    |
+
+---
+
+Bacon was the most common extra added, with 4 customer orders.
+
+***
+
+**3. What was the most commonly added extra?**
+
+````sql
+WITH temp_extras AS (
+  SELECT
+  	UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
+  FROM customer_orders_fix
+  WHERE extras IS NOT NULL
+)
+
+SELECT
+	pizza_toppings.topping_name
+    	, COUNT(n_extras) AS freq
+FROM temp_extras
+LEFT JOIN pizza_runner.pizza_toppings
+ON n_extras = pizza_toppings.topping_id
+GROUP BY pizza_toppings.topping_name
+ORDER BY freq DESC
+LIMIT 1;
+````
+
+
+#### Answer
+
+| topping_name | freq |
+| ------------ | ---- |
+| Bacon        | 4    |
+
+---
+
+Bacon was the most common extra added to a total of 4 customer orders.
+
+***
+
+**3. What was the most common exclusion?**
+
+````sql
+WITH temp_exclu AS (
+  SELECT
+  	UNNEST(STRING_TO_ARRAY(exclusions, ', '))::int AS n_exclude
+  FROM customer_orders_fix
+  WHERE exclusions IS NOT NULL
+)
+
+SELECT
+	pizza_toppings.topping_name
+    , COUNT(n_exclude) AS freq
+FROM temp_exclu
+LEFT JOIN pizza_runner.pizza_toppings
+ON n_exclude = pizza_toppings.topping_id
+GROUP BY pizza_toppings.topping_name
+ORDER BY freq DESC
+LIMIT 1;
+````
+
+
+#### Answer
+
+| topping_name | freq |
+| ------------ | ---- |
+| Cheese       | 4    |
+
+---
+
+Cheese was the most common ingredient excluded from a total of 4 customer orders.
+
+***
+
+**4. Generate an order item for each record in the customers_orders table in the format of one of the following:**
+- Meat Lovers
+- Meat Lovers - Exclude Beef
+- Meat Lovers - Extra Bacon
+- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
+
+````sql
+SELECT 
+	order_id
+	, CASE 
+	WHEN exclusions IS NULL AND extras IS NULL THEN pizza_names.pizza_name
+    WHEN exclusions IS NULL
+    THEN CONCAT(pizza_names.pizza_name, ' - Extra ')
+    WHEN extras IS NULL
+    THEN CONCAT(pizza_names.pizza_name, ' - Extra ')
+    ELSE CONCAT(pizza_names.pizza_name, ' - Exclude ', ' - Extra ') END AS order_ticket
+FROM customer_orders_fix
+LEFT JOIN pizza_runner.pizza_names
+ON customer_orders_fix.pizza_id = pizza_names.pizza_id
+ORDER BY customer_orders_fix.order_id, customer_orders_fix.pizza_id;
+````
+
+
+#### Answer
+
+| topping_name | freq |
+| ------------ | ---- |
+| Cheese       | 4    |
+
+---
+
+Cheese was the most common ingredient excluded from a total of 4 customer orders.
+
+***
