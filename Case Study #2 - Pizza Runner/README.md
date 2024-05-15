@@ -67,12 +67,17 @@ CREATE TEMP TABLE runner_orders_fix AS
   SELECT
     order_id
     , runner_id
-    , pickup_time
+    , CASE
+    	WHEN pickup_time LIKE 'null'
+        	THEN NULL
+        ELSE pickup_time END AS pickup_time
     , CASE
     	WHEN distance LIKE '%km%'
         	THEN REPLACE(distance, 'km', '')
         WHEN distance LIKE '%kms%'
         	THEN REPLACE (distance, 'kms', '')
+        WHEN distance LIKE 'null'
+        	THEN NULL
         ELSE distance END AS distance
     , CASE
     	WHEN duration LIKE '%minutes%'
@@ -89,6 +94,7 @@ CREATE TEMP TABLE runner_orders_fix AS
         ELSE cancellation
         END AS cancellation
    FROM pizza_runner.runner_orders;
+
 ````
 
 ***
@@ -426,35 +432,147 @@ From the resulting query, observe the runner registrations for each week:
 
 ````sql
 WITH pickup_time AS (
-  SELECT runner_id
-  		 , order_id
-  		 , pickup_time::int
+  SELECT runner_orders_fix.runner_id
+	 , runner_orders_fix.order_id
+  	 , runner_orders_fix.pickup_time::timestamp AS pickup_time
+  	 , customer_orders_fix.order_time::timestamp AS order_time
   FROM runner_orders_fix
-  WHERE pickup_time IS NOT NULL)
+  LEFT JOIN customer_orders_fix
+  ON runner_orders_fix.order_id = customer_orders_fix.order_id
+  WHERE pickup_time IS NOT NULL
+)
 
-SELECT	pickup_time.runner_id
-		, AVG(pickup_time.pickup_time - customer_orders_fix.order_time) AS avg_minutes
+SELECT	runner_id
+	, ROUND(AVG(EXTRACT(EPOCH FROM pickup_time - order_time)/60)::numeric, 2) AS avg_minutes
 FROM pickup_time
-LEFT JOIN customer_orders_fix
-ON pickup_time.order_id = customer_orders_fix.order_id
 GROUP BY runner_id
 ORDER BY runner_id;
 ````
 
+#### Code Explanation
+- Use new statement 'EXTRACT(EPOCH))' to extract the timestamp in terms of seconds. By subtracting the difference between order time and pick up time in seconds, then dividing by 60 to estimate the difference in terms of minutes, the result is more precise. 
+
+
 #### Answer
 
-| week_num | runners_sign_up |
-| -------- | --------------- |
-| 53       | 2               |
-| 1        | 1               |
-| 2        | 1               |
+| runner_id | avg_minutes |
+| --------- | ----------- |
+| 1         | 15.68       |
+| 2         | 23.72       |
+| 3         | 10.47       |
 
 ---
 
-From the resulting query, observe the runner registrations for each week:
-- There are 2 runners that registered on the 53rd week.
-- There is 1 runner that registered on the 1st week.
-- There is 1 runner that registered on the 2nd week.
+From the resulting query, it takes an average of:
+- 15.68 minutes for runner ID 1.
+- 23.72 minutes for runner ID 2.
+- 10.47 minutes for runner ID 3.
 
 ***
 
+**3. Is there any relationship between the number of pizzas and how long the order takes to prepare?**
+
+````sql
+WITH pizza_count AS (
+  SELECT customer_orders_fix.order_id
+  	 , COUNT(customer_orders_fix.order_id) AS num_pizza
+  	 , runner_orders_fix.pickup_time::timestamp AS pickup_time
+  	 , customer_orders_fix.order_time::timestamp AS order_time
+  FROM customer_orders_fix
+  LEFT JOIN runner_orders_fix
+  ON runner_orders_fix.order_id = customer_orders_fix.order_id
+  WHERE pickup_time IS NOT NULL
+  GROUP BY customer_orders_fix.order_id, pickup_time, order_time
+  ORDER BY customer_orders_fix.order_id, pickup_time, order_time
+)
+
+SELECT	DISTINCT num_pizza
+	, ROUND(AVG(EXTRACT(EPOCH FROM pickup_time - order_time)/60)::numeric, 2) AS avg_minutes
+FROM pizza_count
+GROUP BY num_pizza
+ORDER BY num_pizza;
+````
+
+#### Answer
+
+| num_pizza | avg_minutes |
+| --------- | ----------- |
+| 1         | 12.36       |
+| 2         | 18.38       |
+| 3         | 29.28       |
+
+---
+
+From the resulting query, it takes an average of:
+- 12.36 minutes for orders with 1 pizza.
+- 18.38 minutes for orders with 2 pizzas.
+- 29.28 minutes for orders with 3 pizzas.
+
+There appears to be a positive relationship between the number of pizzas per order and the average minutes it took to finish the order. To be more specific, increasing pizzas from 1 to 2 took Pizza Runner roughly an extra 6 minutes, while increasing from 2 to 3 took roughly an extra 11 minutes, suggesting there may be a non-linear relationship between the two variables.
+
+***
+
+**4. What was the average distance travelled for each customer?**
+
+````sql
+WITH cust_distance AS (
+  SELECT customer_id
+  		 , distance::decimal
+  FROM customer_orders_fix
+  LEFT JOIN runner_orders_fix
+  ON customer_orders_fix.order_id = runner_orders_fix.order_id
+  WHERE distance IS NOT NULL
+)
+
+SELECT	customer_id
+		, AVG(distance) AS avg_distance
+FROM cust_distance
+GROUP BY customer_id
+ORDER BY customer_id;
+````
+
+#### Answer
+
+| customer_id | avg_distance |
+| ----------- | ------------ |
+| 101         | 20.00        |
+| 102         | 16.73        |
+| 103         | 23.40        |
+| 104         | 10.00        |
+| 105         | 25.00        |
+
+---
+
+From the resulting query, observe the average distance for each customer id in kilometers:
+- Average distance traveled for customer 101 is 20.00km.
+- Average distance traveled for customer 102 is 16.73km.
+- Average distance traveled for customer 103 is 23.40km.
+- Average distance traveled for customer 104 is 10.00km.
+- Average distance traveled for customer 105 is 25.00km.
+
+***
+
+**5. What was the difference between the longest and shortest delivery times for all orders?**
+
+````sql
+WITH times_delivery AS (
+  SELECT duration::int
+  FROM runner_orders_fix
+  WHERE duration IS NOT NULL
+)
+
+SELECT MAX(duration) - MIN(duration) AS time_diff
+FROM times_delivery;
+````
+
+#### Answer
+
+| time_diff |
+| --------- |
+| 30        |
+
+---
+
+From the resulting query, the time difference between the longest and shortest delivery times for all non-null orders is 30 minutes.
+
+***
