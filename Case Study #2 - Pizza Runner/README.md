@@ -817,37 +817,180 @@ Cheese was the most common ingredient excluded from a total of 4 customer orders
 
 ***
 
-**4. Generate an order item for each record in the customers_orders table in the format of one of the following:**
-- Meat Lovers
-- Meat Lovers - Exclude Beef
-- Meat Lovers - Extra Bacon
-- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
+**4. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients.**
 
 ````sql
 SELECT 
 	order_id
 	, CASE 
-	WHEN exclusions IS NULL AND extras IS NULL THEN pizza_names.pizza_name
-    WHEN exclusions IS NULL
-    THEN CONCAT(pizza_names.pizza_name, ' - Extra ')
-    WHEN extras IS NULL
-    THEN CONCAT(pizza_names.pizza_name, ' - Extra ')
-    ELSE CONCAT(pizza_names.pizza_name, ' - Exclude ', ' - Extra ') END AS order_ticket
+    WHEN extras LIKE '1, 4' AND exclusions LIKE '2, 6'
+    THEN CONCAT(pizza_names.pizza_name, ' - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Chicken')
+    WHEN extras LIKE '1, 5' AND exclusions LIKE '4'
+    THEN CONCAT(pizza_names.pizza_name, ' - Exclude Cheese - Extra Bacon, Chicken')
+    WHEN exclusions IS NULL AND extras LIKE '1'
+    THEN CONCAT(pizza_names.pizza_name, ' - Extra Bacon')
+    WHEN extras IS NULL AND exclusions LIKE '4'
+    THEN CONCAT(pizza_names.pizza_name, ' - Exclude Cheese')
+    ELSE pizza_names.pizza_name END AS order_ticket
 FROM customer_orders_fix
 LEFT JOIN pizza_runner.pizza_names
 ON customer_orders_fix.pizza_id = pizza_names.pizza_id
 ORDER BY customer_orders_fix.order_id, customer_orders_fix.pizza_id;
 ````
 
+#### Code Explanation
+There wasn't a clean way to do this lookup without a large amount of data cleaning. Currently hard-coded all of the different combinations but will try to come up with a more elegant solution at a later time.
 
 #### Answer
 
-| topping_name | freq |
-| ------------ | ---- |
-| Cheese       | 4    |
+| order_id | order_ticket                                                     |
+| -------- | ---------------------------------------------------------------- |
+| 1        | Meatlovers                                                       |
+| 2        | Meatlovers                                                       |
+| 3        | Meatlovers                                                       |
+| 3        | Vegetarian                                                       |
+| 4        | Meatlovers - Exclude Cheese                                      |
+| 4        | Meatlovers - Exclude Cheese                                      |
+| 4        | Vegetarian - Exclude Cheese                                      |
+| 5        | Meatlovers - Extra Bacon                                         |
+| 6        | Vegetarian                                                       |
+| 7        | Vegetarian - Extra Bacon                                         |
+| 8        | Meatlovers                                                       |
+| 9        | Meatlovers - Exclude Cheese - Extra Bacon, Chicken               |
+| 10       | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Chicken |
+| 10       | Meatlovers                                                       |
 
 ---
 
-Cheese was the most common ingredient excluded from a total of 4 customer orders.
+***
+
+**5. Generate an order item for each record in the customers_orders table in the format of one of the following:**
+
+````sql
+SELECT 
+	order_id
+	, CASE 
+		WHEN customer_orders_fix.pizza_id = 1 AND extras LIKE '1, 4' AND exclusions LIKE '2, 6'
+		THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, Beef, 2x Cheese, Chicken, Pepperoni, Salami')
+		WHEN customer_orders_fix.pizza_id = 1 AND extras LIKE '1, 5' AND exclusions LIKE '4'
+		THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, 2x Chicken, Mushrooms, Pepperoni, Salami')
+		WHEN customer_orders_fix.pizza_id = 1 AND exclusions IS NULL AND extras LIKE '1'
+		THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami')
+		WHEN customer_orders_fix.pizza_id = 2 AND exclusions IS NULL AND extras LIKE '1'
+		THEN CONCAT(pizza_names.pizza_name, ': Bacon, Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce')
+		WHEN customer_orders_fix.pizza_id = 1 AND extras IS NULL AND exclusions LIKE '4'
+		THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami')
+		WHEN customer_orders_fix.pizza_id = 2 AND extras IS NULL AND exclusions LIKE '4'
+		THEN CONCAT(pizza_names.pizza_name, ': Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce')
+		WHEN customer_orders_fix.pizza_id = 1 AND extras IS NULL AND exclusions IS NULL
+		THEN CONCAT(pizza_names.pizza_name, ': Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami')
+		ELSE CONCAT(pizza_names.pizza_name, ': Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce') END AS order_ticket
+FROM customer_orders_fix
+LEFT JOIN pizza_runner.pizza_names
+ON customer_orders_fix.pizza_id = pizza_names.pizza_id
+ORDER BY customer_orders_fix.order_id, customer_orders_fix.pizza_id;
+````
+
+#### Code Explanation
+There wasn't a clean way to do this lookup without a large amount of data cleaning. Currently hard-coded all of the different combinations but will try to come up with a more elegant solution at a later time.
+
+#### Answer
+
+| order_id | order_ticket                                                                         |
+| -------- | ------------------------------------------------------------------------------------ |
+| 1        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 2        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 3        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 3        | Vegetarian: Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce               |
+| 4        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami         |
+| 4        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami         |
+| 4        | Vegetarian: Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce                       |
+| 5        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami |
+| 6        | Vegetarian: Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce               |
+| 7        | Vegetarian: Bacon, Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce        |
+| 8        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 9        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, 2x Chicken, Mushrooms, Pepperoni, Salami      |
+| 10       | Meatlovers: 2x Bacon, Beef, 2x Cheese, Chicken, Pepperoni, Salami                    |
+| 10       | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+
+---
+
+***
+
+**6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?**
+
+````sql
+WITH CTE AS (
+  SELECT customer_orders_fix.order_id
+  		 , customer_orders_fix.customer_id
+  		 , customer_orders_fix.pizza_id
+  		 , customer_orders_fix.exclusions
+  		 , customer_orders_fix.extras
+  		 , customer_orders_fix.order_time
+  FROM customer_orders_fix
+  LEFT JOIN runner_orders_fix
+  ON customer_orders_fix.order_id = runner_orders_fix.order_id
+  WHERE runner_orders_fix.cancellation IS NULL)
+
+
+SELECT 
+	order_id
+	, CASE 
+    WHEN CTE.pizza_id = 1 AND extras LIKE '1, 4' AND exclusions LIKE '2, 6'
+    THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, Beef, 2x Cheese, Chicken, Pepperoni, Salami')
+    WHEN CTE.pizza_id = 1 AND extras LIKE '1, 5' AND exclusions LIKE '4'
+    THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, 2x Chicken, Mushrooms, Pepperoni, Salami')
+    WHEN CTE.pizza_id = 1 AND exclusions IS NULL AND extras LIKE '1'
+    THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami')
+    WHEN CTE.pizza_id = 2 AND exclusions IS NULL AND extras LIKE '1'
+    THEN CONCAT(pizza_names.pizza_name, ': Bacon, Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce')
+    WHEN CTE.pizza_id = 1 AND extras IS NULL AND exclusions LIKE '4'
+    THEN CONCAT(pizza_names.pizza_name, ': 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami')
+    WHEN CTE.pizza_id = 2 AND extras IS NULL AND exclusions LIKE '4'
+    THEN CONCAT(pizza_names.pizza_name, ': Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce')
+    WHEN CTE.pizza_id = 1 AND extras IS NULL AND exclusions IS NULL
+    THEN CONCAT(pizza_names.pizza_name, ': Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami')
+    ELSE CONCAT(pizza_names.pizza_name, ': Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce') END AS order_ticket
+FROM CTE
+LEFT JOIN pizza_runner.pizza_names
+ON CTE.pizza_id = pizza_names.pizza_id
+ORDER BY CTE.order_id, CTE.pizza_id;
+````
+
+#### Code Explanation
+There wasn't a clean way to do this lookup without a large amount of data cleaning. Currently hard-coded all of the different combinations but will try to come up with a more elegant solution at a later time.
+
+#### Answer
+
+| order_id | order_ticket                                                                         |
+| -------- | ------------------------------------------------------------------------------------ |
+| 1        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 2        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 3        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 3        | Vegetarian: Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce               |
+| 4        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami         |
+| 4        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Chicken, Mushrooms, Pepperoni, Salami         |
+| 4        | Vegetarian: Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce                       |
+| 5        | Meatlovers: 2x Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami |
+| 7        | Vegetarian: Bacon, Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce        |
+| 8        | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+| 10       | Meatlovers: 2x Bacon, Beef, 2x Cheese, Chicken, Pepperoni, Salami                    |
+| 10       | Meatlovers: Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami    |
+
+---
+Bacon - 14
+BBQ Sauce - 8
+Beef - 9
+Cheese - 10
+Chicken - 9
+Mushrooms - 11
+Onions - 3
+Pepperoni - 9
+Peppers - 3
+Salami - 9
+Tomatoes - 3
+Tomato Sauce - 3
+
+From the query above, Bacon was ordered most frequently at 14 times. The next most frequently utilized ingredient was Mushrooms at 11 times, then the other ingredients in Meatlovers at mostly 9 times (BBQ Sauce was excluded once).
 
 ***
