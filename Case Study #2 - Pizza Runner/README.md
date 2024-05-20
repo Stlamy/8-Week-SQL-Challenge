@@ -749,40 +749,6 @@ Bacon was the most common extra added, with 4 customer orders.
 
 ***
 
-**3. What was the most commonly added extra?**
-
-````sql
-WITH temp_extras AS (
-  SELECT
-  	UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
-  FROM customer_orders_fix
-  WHERE extras IS NOT NULL
-)
-
-SELECT
-	pizza_toppings.topping_name
-    	, COUNT(n_extras) AS freq
-FROM temp_extras
-LEFT JOIN pizza_runner.pizza_toppings
-ON n_extras = pizza_toppings.topping_id
-GROUP BY pizza_toppings.topping_name
-ORDER BY freq DESC
-LIMIT 1;
-````
-
-
-#### Answer
-
-| topping_name | freq |
-| ------------ | ---- |
-| Bacon        | 4    |
-
----
-
-Bacon was the most common extra added to a total of 4 customer orders.
-
-***
-
 **3. What was the most common exclusion?**
 
 ````sql
@@ -992,5 +958,118 @@ Tomatoes - 3
 Tomato Sauce - 3
 
 From the query above, Bacon was ordered most frequently at 14 times. The next most frequently utilized ingredient was Mushrooms at 11 times, then the other ingredients in Meatlovers at mostly 9 times (BBQ Sauce was excluded once).
+
+***
+
+### D. Pricing and Ratings
+
+**1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?**
+
+````sql
+WITH cte AS (
+  SELECT 
+  	CASE WHEN c.pizza_id = 1 THEN 12
+    ELSE 10 END AS revenue
+  FROM customer_orders_fix c
+  LEFT JOIN runner_orders_fix r
+  ON c.order_id = r.order_id
+)
+
+SELECT SUM(revenue) AS tot_revenue
+FROM cte;
+````
+
+#### Code Explanation
+May be simpler to SUM the CASE WHEN statements in the CTE.
+
+#### Answer
+
+| tot_revenue |
+| ----------- |
+| 138         |
+
+---
+
+Notice that total revenue for all successfully delivered orders was $138 if a Meat Lovers pizza costs $12 and a Vegetarian costs $10.  
+
+***
+
+**2. What if there was an additional $1 charge for any pizza extras?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	*
+  	, UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
+  FROM customer_orders_fix
+  WHERE extras IS NOT NULL)
+  , cte2 AS (
+  SELECT
+	cte.order_id
+    , cte.extras
+    , COUNT(n_extras)::int AS n_extras
+   FROM cte
+   LEFT JOIN runner_orders_fix
+   ON cte.order_id = runner_orders_fix.order_id
+   WHERE runner_orders_fix.cancellation IS NULL
+   GROUP BY cte.order_id, cte.extras)
+   , cte_customer AS (
+   SELECT
+     c.*
+     , CASE WHEN 
+     	c.pizza_id = 1 THEN 12
+     	ELSE 10 END AS revenue
+  FROM customer_orders_fix AS c
+  LEFT JOIN runner_orders_fix
+  ON c.order_id = runner_orders_fix.order_id
+  WHERE runner_orders_fix.cancellation IS NULL
+  GROUP BY c.order_id, c.pizza_id, c.customer_id, c.exclusions, c.extras, c.order_time
+  ORDER BY c.order_id, c.pizza_id, c.customer_id, c.exclusions, c.extras, c.order_time
+)
+
+SELECT SUM(CASE WHEN
+	n_extras IS NULL THEN cte_customer.revenue
+    ELSE cte_customer.revenue + cte2.n_extras END) AS tot_revenue
+FROM cte_customer
+LEFT JOIN cte2
+ON cte_customer.order_id = cte2.order_id;
+
+WITH cte AS (
+  SELECT
+  	customer_orders_fix.*
+  FROM customer_orders_fix
+  LEFT JOIN runner_orders_fix
+  ON customer_orders_fix.order_id = runner_orders_fix.order_id
+  WHERE runner_orders_fix.cancellation IS NULL)
+  , cte2 AS (
+  SELECT
+	order_id
+    , pizza_id
+    , CASE WHEN extras IS NULL THEN 0
+    ELSE UNNEST(STRING_TO_ARRAY(extras, ', '))::int END AS n_extras
+   FROM cte), cte3 AS (
+   SELECT CASE WHEN pizza_id = 1 THEN 12
+        	ELSE 10 END AS pizza_cost
+     	 , n_extras
+   FROM cte2)
+ 
+SELECT	*
+FROM cte3;
+````
+
+#### Code Explanation
+Probably not the most elegant solution, but this code executes in the following blocks:
+- Initial CTE breaks out all of the extras added onto an order as a separate column.
+- CTE2 comes up with a total count of extras added on by order_id.
+- CTE_customer is a separate query that creates a variable for prices paid for each type of pizza ($12 for Meatlover and $10 for Vegetarian)
+- The final block of code sums everything together. Note that the SUM statement only adds up the values within a single column, not across columns.
+
+#### Answer
+
+| tot_revenue |
+| ----------- |
+| 154         |	SHOULD BE 138 + 4 = 142
+
+---
 
 ***
