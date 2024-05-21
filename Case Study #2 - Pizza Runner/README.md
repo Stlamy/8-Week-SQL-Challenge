@@ -1103,27 +1103,57 @@ The schema is extremely simple and does not require too much information, as one
 - Average speed
 - Total number of pizzas
 
-````sql
-DROP TABLE IF EXISTS runner_ratings;
-CREATE TABLE runner_ratings (
-  "order_id" INTEGER,
-  "rating" INTEGER
-);
-INSERT INTO runner_ratings
-  ("order_id", "rating")
-VALUES
-  (1, 4),
-  (2, 3),
-  (3, 2),
-  (5, 3),
-  (7, 5),
-  (8, 1),
-  (10, 3);
-````
-
 #### Code Explanation
-The schema is extremely simple and does not require too much information, as one can join the other available schemas that contain the information one needs to conduct various analyses. Looking just at the ratings, one can look at the range of ratings that each customer had for runners responsible for their delivery, since a single runner is responsible for a single order. Potentially, there could be additional information that is interesting to ensure data quality is reliable, such as the following:
-- Review time, which records the time a customer rated their experience after delivery.
-- Comments, where customers can record what went wrong with their delivery. This is to potentially filter out customer ratings based on the food, rather than the runner delivery itself.
+Using the schema designed in Question 3, it would be possible to come up with a table that looks like the above. However, it does not seem as if the information provided in the new table would be very useful outside of providing a loose overview of the available data. The only aggregation that looks particularly useful is the 'Total number of pizzas' column, which would provide a total number of pizzas that were ordered under each order_id. On the other hand, if the purpose of this combined file is to create an overall database that contains updated information of overall averages of each delivery, that could be helpful. However, an issue with this approach is that it is unclear which id should serve as the base for the analysis. At a glance, runner_id appears to be the most appropriate base for average speed, where one can join a "speed by runner" variable from a CTE. An issue with this approach would be that there would be duplicates throughout the column.
 
 ***
+
+**5. If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	c.order_id
+  	, SUM(CASE WHEN
+  		c.pizza_id = 1 THEN 12
+  		ELSE 10 END) AS pizza_revenue
+  FROM customer_orders_fix c
+  LEFT JOIN runner_orders_fix r
+  ON c.order_id = r.order_id
+  WHERE r.cancellation IS NULL
+  GROUP BY c.order_id
+), cte2 AS (
+  SELECT
+  	r.order_id
+  	, SUM(CASE WHEN 
+  		r.distance IS NULL THEN 0
+  		ELSE r.distance::numeric * 0.3 END) AS runner_expense
+  FROM runner_orders_fix r
+  WHERE r.cancellation IS NULL
+  GROUP BY r.order_id
+)
+
+SELECT
+	SUM(a.pizza_revenue - b.runner_expense) AS total_profit
+FROM cte a
+LEFT JOIN cte2 b
+ON a.order_id = b.order_id;
+````
+
+#### Answer
+
+| total_profit |
+| ------------ |
+| 94.44        |
+
+***
+
+### E. Bonus Questions
+
+** If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?**
+
+- Use the following syntax for an 'INSERT' statement in SQL:
+````sql
+INSERT INTO pizza_recipes("pizza_id", "toppings");
+VALUES(3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12');
+````
