@@ -122,19 +122,80 @@ Foodie-Fi has 1,000 total customers.
 **2. What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value?**
 
 ````sql
+WITH cte AS (
+	SELECT
+		EXTRACT(MONTH FROM start_date) AS start_month
+	FROM foodie_fi.subscriptions
+	WHERE plan_id = 0)
+, cte2 AS (
+	SELECT
+		start_month
+		, COUNT(start_month) AS month_count
+	FROM cte
+	GROUP BY start_month
+	ORDER BY start_month
+), cte3 AS (
+	SELECT
+		SUM(month_count) AS total_count
+	FROM cte2
+), cte4 AS (
+	SELECT
+		cte2.start_month
+  		, cte2.month_count::numeric
+    		, cte3.total_count::numeric AS total_count
+	FROM cte2, cte3
+)
+
 SELECT
-	EXTRACT(MONTH from
-FROM foodie_fi.subscriptions;
+	start_month
+	, month_count
+	, total_count
+	, ROUND(month_count / total_count * 100, 2) AS count_share
+FROM cte4;
 ````
 
-#### Answer
-
-| total_customers |
-| --------------- |
-| 1000            |
+| start_month | month_count | total_count | count_share |
+| ----------- | ----------- | ----------- | ----------- |
+| 1           | 88          | 1000        | 8.80        |
+| 2           | 68          | 1000        | 6.80        |
+| 3           | 94          | 1000        | 9.40        |
+| 4           | 81          | 1000        | 8.10        |
+| 5           | 88          | 1000        | 8.80        |
+| 6           | 79          | 1000        | 7.90        |
+| 7           | 89          | 1000        | 8.90        |
+| 8           | 88          | 1000        | 8.80        |
+| 9           | 87          | 1000        | 8.70        |
+| 10          | 79          | 1000        | 7.90        |
+| 11          | 75          | 1000        | 7.50        |
+| 12          | 84          | 1000        | 8.40        |
 
 ---
 
-Foodie-Fi has 1,000 total customers.
+#### Code Explanation
+While this may not be the most elegant solution, the code is written as follows:
+- First CTE limits the [subscriptions] table to only trial subscriptions and extracts all of the start months.
+- Second CTE counts all trial subscriptions by start month.
+- Third CTE estimates the sum of all trial subscriptions.
+- Fourth CTE organizes all of the data estimated in the previous 3 CTEs for use to estimate the share of starting months for all trial subscriptions.
+
+#### Answer
+From 1,000 trial subscriptions, the month with the most trial subscriptions was March, while the one with the least was Februrary. 
+
+***
+
+**3. What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name. **
+
+````sql
+
+````
+table
+
+---
+
+#### Code Explanation
+
+
+#### Answer
+
 
 ***
