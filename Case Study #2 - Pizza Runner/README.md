@@ -261,10 +261,27 @@ From the resulting query, observe the following pizza orders by customer.
 **6. What was the maximum number of pizzas delivered in a single order?**
 
 ````sql
+WITH cte AS (
+  SELECT c.*
+  FROM customer_orders_fix c
+  LEFT JOIN runner_orders_fix r
+  ON c.order_id = r.order_id
+  WHERE r.cancellation IS NULL)
 
+SELECT
+	order_id
+    , COUNT(order_id) AS max_pizzas
+FROM cte
+GROUP BY order_id
+ORDER BY max_pizzas DESC
+LIMIT 1;
 ````
 
 #### Answer
+
+| order_id | max_pizzas |
+| -------- | ---------- |
+| 4        | 3          |
 
 ---
 
@@ -973,6 +990,7 @@ WITH cte AS (
   FROM customer_orders_fix c
   LEFT JOIN runner_orders_fix r
   ON c.order_id = r.order_id
+  WHERE r.cancellation IS NULL
 )
 
 SELECT SUM(revenue) AS tot_revenue
@@ -998,78 +1016,114 @@ Notice that total revenue for all successfully delivered orders was $138 if a Me
 
 ````sql
 WITH cte AS (
-  SELECT
-  	*
-  	, UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
-  FROM customer_orders_fix
-  WHERE extras IS NOT NULL)
-  , cte2 AS (
-  SELECT
-	cte.order_id
-    , cte.extras
-    , COUNT(n_extras)::int AS n_extras
-   FROM cte
-   LEFT JOIN runner_orders_fix
-   ON cte.order_id = runner_orders_fix.order_id
-   WHERE runner_orders_fix.cancellation IS NULL
-   GROUP BY cte.order_id, cte.extras)
-   , cte_customer AS (
-   SELECT
-     c.*
-     , CASE WHEN 
-     	c.pizza_id = 1 THEN 12
-     	ELSE 10 END AS revenue
-  FROM customer_orders_fix AS c
-  LEFT JOIN runner_orders_fix
-  ON c.order_id = runner_orders_fix.order_id
-  WHERE runner_orders_fix.cancellation IS NULL
-  GROUP BY c.order_id, c.pizza_id, c.customer_id, c.exclusions, c.extras, c.order_time
-  ORDER BY c.order_id, c.pizza_id, c.customer_id, c.exclusions, c.extras, c.order_time
+	SELECT
+		*
+		, UNNEST(STRING_TO_ARRAY(extras, ', '))::int AS n_extras
+	FROM customer_orders_fix
+	WHERE extras IS NOT NULL
+)
+, cte2 AS (
+	SELECT
+		order_id
+		, COUNT(n_extras) AS n_extras
+	FROM cte
+	GROUP BY order_id)
+, cte_customer AS (
+	SELECT
+		c.order_id
+		, SUM(CASE WHEN 
+			c.pizza_id = 1 THEN 12 ELSE 10 END) AS revenue
+	FROM customer_orders_fix c
+	LEFT JOIN runner_orders_fix r
+	ON c.order_id = r.order_id
+	WHERE r.cancellation IS NULL
+	GROUP BY c.order_id
+	ORDER BY c.order_id
 )
 
-SELECT SUM(CASE WHEN
-	n_extras IS NULL THEN cte_customer.revenue
-    ELSE cte_customer.revenue + cte2.n_extras END) AS tot_revenue
-FROM cte_customer
-LEFT JOIN cte2
-ON cte_customer.order_id = cte2.order_id;
-
-WITH cte AS (
-  SELECT
-  	customer_orders_fix.*
-  FROM customer_orders_fix
-  LEFT JOIN runner_orders_fix
-  ON customer_orders_fix.order_id = runner_orders_fix.order_id
-  WHERE runner_orders_fix.cancellation IS NULL)
-  , cte2 AS (
-  SELECT
-	order_id
-    , pizza_id
-    , CASE WHEN extras IS NULL THEN 0
-    ELSE UNNEST(STRING_TO_ARRAY(extras, ', '))::int END AS n_extras
-   FROM cte), cte3 AS (
-   SELECT CASE WHEN pizza_id = 1 THEN 12
-        	ELSE 10 END AS pizza_cost
-     	 , n_extras
-   FROM cte2)
- 
-SELECT	*
-FROM cte3;
+SELECT SUM(CASE WHEN b.n_extras is NULL THEN a.revenue
+	ELSE a.revenue + b.n_extras END) AS total_revenue
+FROM cte_customer a
+LEFT JOIN cte2 b
+ON a.order_id = b.order_id;
 ````
 
 #### Code Explanation
 Probably not the most elegant solution, but this code executes in the following blocks:
-- Initial CTE breaks out all of the extras added onto an order as a separate column.
-- CTE2 comes up with a total count of extras added on by order_id.
-- CTE_customer is a separate query that creates a variable for prices paid for each type of pizza ($12 for Meatlover and $10 for Vegetarian)
-- The final block of code sums everything together. Note that the SUM statement only adds up the values within a single column, not across columns.
+- Split out extras in 'extra' column of the customer_orders_fix table in initial CTE.
+- Estimate the total revenue from additional extras on pizza orders in CTE 2, where extras are priced at $1 per extra.
+- Estimate total revenue from actual pizza orders that are successfully delivered where Meatlover pizzas are priced at $12 and Vegetarian pizzas are priced at $10.
 
 #### Answer
 
-| tot_revenue |
-| ----------- |
-| 154         |	SHOULD BE 138 + 4 = 142
+| total_revenue |
+| ------------- |
+| 142           |
 
 ---
+
+***
+
+**3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.**
+
+````sql
+DROP TABLE IF EXISTS runner_ratings;
+CREATE TABLE runner_ratings (
+  "order_id" INTEGER,
+  "rating" INTEGER
+);
+INSERT INTO runner_ratings
+  ("order_id", "rating")
+VALUES
+  (1, 4),
+  (2, 3),
+  (3, 2),
+  (5, 3),
+  (7, 5),
+  (8, 1),
+  (10, 3);
+````
+
+#### Code Explanation
+The schema is extremely simple and does not require too much information, as one can join the other available schemas that contain the information one needs to conduct various analyses. Looking just at the ratings, one can look at the range of ratings that each customer had for runners responsible for their delivery, since a single runner is responsible for a single order. Potentially, there could be additional information that is interesting to ensure data quality is reliable, such as the following:
+- Review time, which records the time a customer rated their experience after delivery.
+- Comments, where customers can record what went wrong with their delivery. This is to potentially filter out customer ratings based on the food, rather than the runner delivery itself.
+
+***
+
+**4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?**
+- customer_id
+- order_id
+- runner_id
+- rating
+- order_time
+- pickup_time
+- Time between order and pickup
+- Delivery duration
+- Average speed
+- Total number of pizzas
+
+````sql
+DROP TABLE IF EXISTS runner_ratings;
+CREATE TABLE runner_ratings (
+  "order_id" INTEGER,
+  "rating" INTEGER
+);
+INSERT INTO runner_ratings
+  ("order_id", "rating")
+VALUES
+  (1, 4),
+  (2, 3),
+  (3, 2),
+  (5, 3),
+  (7, 5),
+  (8, 1),
+  (10, 3);
+````
+
+#### Code Explanation
+The schema is extremely simple and does not require too much information, as one can join the other available schemas that contain the information one needs to conduct various analyses. Looking just at the ratings, one can look at the range of ratings that each customer had for runners responsible for their delivery, since a single runner is responsible for a single order. Potentially, there could be additional information that is interesting to ensure data quality is reliable, such as the following:
+- Review time, which records the time a customer rated their experience after delivery.
+- Comments, where customers can record what went wrong with their delivery. This is to potentially filter out customer ratings based on the food, rather than the runner delivery itself.
 
 ***
