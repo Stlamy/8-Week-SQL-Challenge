@@ -186,16 +186,135 @@ From 1,000 trial subscriptions, the month with the most trial subscriptions was 
 **3. What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name. **
 
 ````sql
+WITH cte AS (
+  SELECT
+  	*
+  	, EXTRACT(MONTH FROM start_date) AS start_month
+  FROM foodie_fi.subscriptions
+  WHERE start_date >= '2021-01-01'
+)
 
+SELECT
+	plan_id
+    , COUNT(start_month)
+FROM cte
+GROUP BY plan_id
+ORDER BY plan_id;
 ````
-table
+
+| plan_id | count |
+| ------- | ----- |
+| 1       | 8     |
+| 2       | 60    |
+| 3       | 63    |
+| 4       | 71    |
 
 ---
 
-#### Code Explanation
-
-
 #### Answer
+Limiting the query to subscriptions after the year 2020 (so signups on or after 2021-01-01), observe that there are no plans with id 0, or trial plans. A few explanations as to why could be:
+- Foodie-Fi no longer offers the trial option after an initial expansion phase prior to 2021-01-01.
+- Given that there are only 1,000 trial plans on record, Foodie-Fi ran a special promotion for 1,000 trial offers for its launch.
+- Foodie-Fi is no longer experiencing any user growth and has stopped.
 
+````sql
+WITH cte AS (
+  SELECT *
+  	, EXTRACT(YEAR FROM start_date) AS start_year
+  	,  EXTRACT(MONTH FROM start_date) AS start_month
+  	,  EXTRACT(DAY FROM start_date) AS start_day
+  FROM foodie_fi.subscriptions
+), cte2 AS (
+  SELECT
+	*
+  FROM cte
+  WHERE plan_id = 0
+)
+
+SELECT
+	MIN(customer_id) AS first_trial
+    , MAX(customer_id) AS last_trial
+    , COUNT(customer_id) AS customer_count
+    , MIN(start_date) AS first_date
+    , MAX(start_date) AS last_date
+FROM cte2;
+````
+
+Limiting to customers who had a trial subscription, one can observe that customers from 1-1,000 were offered a trial subscription plan. The promotion also lasted from '2020-01-01' to '2020-12-30', so it is unclear whether the subscription was limited to the first year only, or whether it was limited to the first 1,000 customers. It is interesting to note though, that there are only 1,000 unique customers in Foodie-Fi's database, which could actually also suggest that there are no more customers signing up for service. 
+
+| first_trial | last_trial | customer_count | first_date               | last_date                |
+| ----------- | ---------- | -------------- | ------------------------ | ------------------------ |
+| 1           | 1000       | 1000           | 2020-01-01T00:00:00.000Z | 2020-12-30T00:00:00.000Z |
+
+---
 
 ***
+
+**4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?**
+
+````sql
+WITH cte AS (
+  SELECT COUNT(DISTINCT customer_id)::numeric AS churn_count
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 4
+), cte2 AS (
+  SELECT COUNT(DISTINCT customer_id)::numeric AS total_count
+  FROM foodie_fi.subscriptions
+)
+
+SELECT
+	cte.churn_count AS churn_count
+	, ROUND(cte.churn_count / cte2.total_count * 100, 1) AS churn_percent
+FROM cte, cte2;
+````
+
+| churn_count | churn_percent |
+| ----------- | ------------- |
+| 307         | 30.7          |
+
+---
+
+#### Answer
+There are 307 customers that have churned out of 1,000 unique customers, resulting in a percentage of 30.7%.
+
+**5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	*
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 0
+), cte2 AS (
+  SELECT
+	*
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 4
+), cte3 AS (
+  SELECT
+  	cte.*
+  	, cte2.plan_id AS temp_flag
+  FROM cte
+  LEFT JOIN cte2
+  ON cte.customer_id = cte2.customer_id
+), cte4 AS (
+  SELECT
+  	customer_id
+  	, CASE WHEN
+  		temp_flag = 4 THEN 1
+  		ELSE 0 END AS flag_churn
+  FROM cte3)
+
+SELECT
+	SUM(flag_churn) AS churn_count
+    , ROUND(SUM(flag_churn)::numeric / COUNT(flag_churn) * 100, 0) AS trial_count
+FROM cte4;
+````
+
+| churn_count | churn_percent |
+| ----------- | ------------- |
+| 307         | 30.7          |
+
+---
+
+#### Answer
