@@ -279,36 +279,57 @@ There are 307 customers that have churned out of 1,000 unique customers, resulti
 
 **5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?**
 
+Note: Initially ran a LEFT JOIN two queries filtered for plan_ids either 0 or 4, but this does not account for customers that did sign up for a different plan initially but then canceled. Instead, the DENSE_RANK statement is more suitable to limit to customers that churned immediately after the initial free trial.   
+
 ````sql
 WITH cte AS (
   SELECT
   	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY start_date) AS date_order
   FROM foodie_fi.subscriptions
-  WHERE plan_id = 0
 ), cte2 AS (
   SELECT
-	*
-  FROM foodie_fi.subscriptions
-  WHERE plan_id = 4
+  	COUNT(customer_id) AS churn_count
+  FROM cte
+  WHERE plan_id = 4 AND date_order = 2
 ), cte3 AS (
   SELECT
-  	cte.*
-  	, cte2.plan_id AS temp_flag
-  FROM cte
-  LEFT JOIN cte2
-  ON cte.customer_id = cte2.customer_id
-), cte4 AS (
-  SELECT
-  	customer_id
-  	, CASE WHEN
-  		temp_flag = 4 THEN 1
-  		ELSE 0 END AS flag_churn
-  FROM cte3)
+  	COUNT(customer_id) AS total_churn
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 0
+)
 
 SELECT
-	SUM(flag_churn) AS churn_count
-    , ROUND(SUM(flag_churn)::numeric / COUNT(flag_churn) * 100, 0) AS trial_count
-FROM cte4;
+	cte2.churn_count
+	, ROUND(cte2.churn_count * 100.0 / cte3.total_churn, 0) AS churn_rate
+FROM cte2, cte3;
+````
+
+| churn_count | churn_rate |
+| ----------- | ---------- |
+| 92          | 9          |
+
+---
+
+#### Answer
+From a total of 1,000 trial customers, 92 customers directly churned their account.
+
+**4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?**
+
+````sql
+WITH cte AS (
+  SELECT COUNT(DISTINCT customer_id)::numeric AS churn_count
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 4
+), cte2 AS (
+  SELECT COUNT(DISTINCT customer_id)::numeric AS total_count
+  FROM foodie_fi.subscriptions
+)
+
+SELECT
+	cte.churn_count AS churn_count
+	, ROUND(cte.churn_count / cte2.total_count * 100, 1) AS churn_percent
+FROM cte, cte2;
 ````
 
 | churn_count | churn_percent |
@@ -318,3 +339,103 @@ FROM cte4;
 ---
 
 #### Answer
+There are 307 customers that have churned out of 1,000 unique customers, resulting in a percentage of 30.7%.
+
+**6. What is the number and percentage of customer plans after their initial free trial?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	s.*
+  	, p.plan_name
+  	, DENSE_RANK() OVER (PARTITION BY s.customer_id
+                         ORDER BY s.start_date) AS date_order
+  FROM foodie_fi.subscriptions s
+  LEFT JOIN foodie_fi.plans p
+  ON s.plan_id = p.plan_id
+), cte2 AS (
+  SELECT
+  	plan_id
+  	, plan_name
+  	, COUNT(plan_id) AS plan_count
+  FROM cte
+  WHERE date_order = 2
+  GROUP BY plan_id, plan_name
+  ORDER BY plan_id, plan_name
+), cte3 AS (
+  SELECT
+  	COUNT(customer_id) AS total_trial
+  FROM foodie_fi.subscriptions
+  WHERE plan_id = 0
+)
+
+SELECT
+	cte2.plan_id
+	, cte2.plan_name
+	, cte2.plan_count
+	, ROUND(cte2.plan_count * 100.0 / cte3.total_trial, 1) AS plan_rates
+FROM cte2, cte3
+ORDER BY plan_rates DESC;
+````
+
+| plan_id | plan_name     | plan_count | plan_rates |
+| ------- | ------------- | ---------- | ---------- |
+| 1       | basic monthly | 546        | 54.6       |
+| 2       | pro monthly   | 325        | 32.5       |
+| 4       | churn         | 92         | 9.2        |
+| 3       | pro annual    | 37         | 3.7        |
+
+---
+
+#### Answer
+The basic monthly was the most popular choice right after the initial trial period at 54.6%, followed by the pro monthly at 32.5%. The least popular plan was the pro annual at 3.7%.
+
+**7. What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	s.*
+  	, p.plan_name
+  	, DENSE_RANK() OVER (PARTITION BY s.customer_id ORDER BY s.start_date DESC) AS date_order
+  FROM foodie_fi.subscriptions s
+  LEFT JOIN foodie_fi.plans p
+  ON s.plan_id = p.plan_id
+  WHERE start_date <= '2020-12-31'
+), cte2 AS (
+  SELECT
+  	plan_name
+  	, COUNT(plan_name) AS plan_count
+  FROM cte
+  WHERE date_order = 1
+  GROUP BY plan_name
+  ORDER BY plan_name
+), cte3 AS (
+  SELECT
+  	SUM(plan_count) AS total_plans
+  FROM cte2
+)
+
+SELECT
+	plan_name
+	, plan_count
+	, ROUND(plan_count * 100.0 / total_plans, 1) AS plan_rate
+FROM cte2, cte3
+ORDER BY plan_count DESC;
+````
+
+| plan_name     | plan_count | plan_rate |
+| ------------- | ---------- | --------- |
+| pro monthly   | 326        | 32.6      |
+| churn         | 236        | 23.6      |
+| basic monthly | 224        | 22.4      |
+| pro annual    | 195        | 19.5      |
+| trial         | 19         | 1.9       |
+
+---
+
+#### Code Explanation
+The initial CTE orders all customers based on their latest start dates in order to account for the subscription characteristics; upgrading plans go into effect immediately, while downgrading a plan will maintain the higher plan until the plan end date. As such, taking the last plan before 2020-12-31 will collect the customer plans as of that date. 
+
+#### Answer
+Most customers held the pro-monthly plan as of 2020-12-31 at 32.6%, while the next most frequent plan churn at 23.6%. The least held plan was the trial, where only 1.9% of customers remained on that particular plan.
