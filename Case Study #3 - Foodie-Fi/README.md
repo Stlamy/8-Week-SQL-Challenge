@@ -1,4 +1,4 @@
-# Case Study #3 - Foodie-Fi
+	# Case Study #3 - Foodie-Fi
 <image src = "https://8weeksqlchallenge.com/images/case-study-designs/3.png" alt = "Image" width = "500" height = "520">
 
 ## Index
