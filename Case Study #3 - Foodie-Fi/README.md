@@ -439,3 +439,205 @@ The initial CTE orders all customers based on their latest start dates in order 
 
 #### Answer
 Most customers held the pro-monthly plan as of 2020-12-31 at 32.6%, while the next most frequent plan churn at 23.6%. The least held plan was the trial, where only 1.9% of customers remained on that particular plan.
+
+**8. How many customers have upgraded to an annual plan in 2020?**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY start_date) AS sign_order
+  FROM foodie_fi.subscriptions
+  WHERE EXTRACT(YEAR FROM start_date) = 2020
+)
+
+SELECT
+  	COUNT(DISTINCT customer_id) AS annual_count
+FROM cte1
+WHERE plan_id = 3 AND sign_order >= 2;
+````
+
+| annual_count |
+| ------------ |
+| 195          |
+
+---
+
+#### Answer
+There were 195 customers that have upgraded to the annual plan in the year 2020.
+
+***
+
+**9. How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY start_date) AS sign_order
+  FROM foodie_fi.subscriptions
+), cte2 AS (
+  SELECT
+  	*
+  FROM cte1
+  WHERE sign_order = 1
+), cte3 AS (
+  SELECT
+  	*
+  FROM cte1
+  WHERE plan_id = 3
+)
+
+SELECT
+  	ROUND(AVG(cte3.start_date - cte2.start_date), 0) AS avg_days
+FROM cte3
+LEFT JOIN cte2
+ON cte3.customer_id = cte2.customer_id;
+````
+
+| avg_days |
+| -------- |
+| 105      |
+
+---
+
+#### Answer
+Given the population of customers that have upgraded to the annual plan, it took them an average of 105 days to transition to the annual plan.
+
+***
+
+**10. Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY start_date) AS sign_order
+  FROM foodie_fi.subscriptions
+), cte2 AS (
+  SELECT
+  	*
+  FROM cte1
+  WHERE sign_order = 1
+), cte3 AS (
+  SELECT
+  	ROUND(cte1.start_date - cte2.start_date, 0) AS day_difference
+  	, CASE WHEN
+  		ROUND(cte1.start_date - cte2.start_date, 0) <= 30
+  	THEN '0-30 days'
+  	WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 60
+  	THEN '31-60 days'
+	WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 90
+  	THEN '61-90 days'
+  	WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 120
+  	THEN '91-120 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 150
+  	THEN '121-150 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 180
+  	THEN '151-180 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 210
+  	THEN '181-210 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 240
+  	THEN '211-240 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 270
+  	THEN '241-270 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 300
+  	THEN '271-300 days'
+    WHEN ROUND(cte1.start_date - cte2.start_date, 0) <= 330
+  	THEN '301-330 days'
+  	ELSE '> 330 days' END AS day_bracket
+  FROM cte1
+  LEFT JOIN cte2
+  ON cte1.customer_id = cte2.customer_id
+  WHERE cte1.plan_id = 3
+)
+
+SELECT
+  	day_bracket
+    , COUNT(day_bracket) AS customer_count
+    , ROUND(AVG(day_difference), 0) AS avg_days
+FROM cte3
+GROUP BY day_bracket
+ORDER BY day_bracket;
+````
+
+| day_bracket  | customer_count | avg_days |
+| ------------ | -------------- | -------- |
+| 0-30 days    | 49             | 10       |
+| 121-150 days | 42             | 133      |
+| 151-180 days | 36             | 162      |
+| 181-210 days | 26             | 191      |
+| 211-240 days | 4              | 224      |
+| 241-270 days | 5              | 257      |
+| 271-300 days | 1              | 285      |
+| 301-330 days | 1              | 327      |
+| 31-60 days   | 24             | 42       |
+| 61-90 days   | 34             | 71       |
+| 91-120 days  | 35             | 101      |
+| > 330 days   | 1              | 346      |
+
+---
+
+#### Code Explanation
+- Am sure there is a more elegant way to set up the bins, but the table above successfully separates out the 105 average estimated in question 9.
+
+
+***
+
+**11. How many customers downgraded from a pro monthly to a basic monthly plan in 2020?**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY start_date) AS sign_order
+  FROM foodie_fi.subscriptions
+  WHERE EXTRACT(YEAR FROM start_date) = 2020 AND plan_id IN (1, 2)
+)
+
+SELECT
+  	COUNT(customer_id) AS downgrade_count
+FROM cte1
+WHERE plan_id = 1 AND sign_order = 2;
+````
+
+| downgrade_count |
+| --------------- |
+| 0               |
+
+---
+
+#### Answer
+- There are no customers that downgraded from the 'Pro Monthly' plan to the 'Basic Monthly' plan in 2020.
+
+***
+
+### C. Challenge Payment Question
+
+- Currently cannot think of an elegant way to create a table using SQL.
+- Want to use the 'LEAD' statement to create another column with information in other rows of the same customer_id.
+
+### D. Outside the Box Questions
+
+**1. How would you calculate the rate of growth for Foodie-Fi?**
+- For a relatively new startup like Foodie-Fi, a good way to measure growth would be to observe the month-over-month change in a few potential metrics such as revenue or new customers.
+
+**2. What key metrics would you recommend Foodie-Fi management to track over time to assess performance of their overall business?**
+- For a relatively new startup like Foodie-Fi, a good way to measure growth would be to observe the month-over-month change in a few potential metrics such as revenue or new customers. Since Foodie-Fi implements a business model that depends on customer subscriptions, it makes sense that an increase in new customers represents new sources of revenue, so looking at how many customers sign up for the service month by month seems to be a reasonable metric to review.
+
+**3. What are some key customer journeys or experiences that you would analyse further to improve customer retention?**
+- Since Foodie-Fi implements a subscription model, it's important to ensure that customers stay on the more profitable services. As such, movement from the premium models to the basic subscriptions and understanding why that happens would be an interesting question to answer. On the other hand, there is no information on how much each plan costs Foodie-Fi to service. This is something that Danny could implement into his data collection process to better understand Foodie-Fi's profitablility.
+
+**4. f the Foodie-Fi team were to create an exit survey shown to customers who wish to cancel their subscription, what questions would you include in the survey?**
+- General demographic questions are always helpful to understand, so including questions that ask the customer to identify their age and gender would be helpful.
+	- What is your gender?
+	- What is your age?
+ - Some other questions that are more specific to Foodie-Fi are:
+	- What did you like about Foodie-Fi? One could include a selection of potential answers on some of the supposed strong points of Foodie-Fi's service, such as ease of use or availability of content, as well as a type box for other reasons not listed. 
+ 	- Why are you choosing to cancel your subscription? Like the above bullet, potential answers may be price, availability of content, etc.
+
+**5. What business levers could the Foodie-Fi team use to reduce the customer churn rate? How would you validate the effectiveness of your ideas?**
+- A potential tool Danny could use is to provide a special offer that discounts the price of a subscription by xx% compared to a regular subscription for the same number of months.
+	- To evaluate this 'lever', one could compare the number of customers that churn before and after the promotion was offered. Another option for testing would be to conduct A/B testing and test the impact of the promotion. This can be done through a simple logistic regression model (since there are two outcomes: continue to subscribe or churn), or through a different classification model such as decision trees.
+ - A different tool would be to understand whether there are substitutes for Foodie-Fi. For instance, Netflix and other services also provide a significant number of food-focused shows conveniently, along with other content. If one of the major reasons why customers chose to churn was the lack of content on Foodie-Fi (only wanted to watch a particular series, did not update list of content frequently enough, etc.), an option would be to decrease the price of all subscriptions and downsize.
+
