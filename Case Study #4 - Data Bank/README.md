@@ -1,5 +1,5 @@
 	# Case Study #3 - Foodie-Fi
-<image src = "https://8weeksqlchallenge.com/images/case-study-designs/3.png" alt = "Image" width = "500" height = "520">
+<image src = "https://8weeksqlchallenge.com/images/case-study-designs/4.png" alt = "Image" width = "500" height = "520">
 
 ## Index
 - [Business Task](#business-task)
