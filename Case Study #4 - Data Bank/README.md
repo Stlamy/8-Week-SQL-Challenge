@@ -133,11 +133,105 @@ Looking at the query above, total and unique customer counts seem to follow the 
 **4. How many days on average are customers reallocated to a different node?**
 
 ````sql
-
+SELECT 
+	ROUND(AVG(end_date - start_date), 0) AS avg_days
+FROM data_bank.customer_nodes;
 ````
 
 
 #### Answer
+
+| avg_days |
+| -------- |
+| 416373   |
+
+---
+
+From the query above, there seems to be a data issue, as it appears that it is taking customers an average of 416,373 days to reallocate to a different node. To correct this, look for the row with the data issue.
+
+````sql
+WITH cte AS (
+  SELECT
+  	*
+  	, EXTRACT(YEAR FROM start_date) AS start_year
+  	, EXTRACT(YEAR FROM end_date) AS end_year
+  FROM data_bank.customer_nodes
+)
+
+SELECT 
+	start_year
+    , MAX(start_year) AS max_start
+    , end_year
+    , MAX(end_year) AS max_end
+FROM cte
+GROUP BY start_year, end_year
+ORDER BY start_year, end_year;
+````
+
+| start_year | end_year  |
+| ---------- | --------- |
+| 2020       | 2020      |
+| 2020       | 9999      |
+
+---
+
+From the query above, observe a max end_year of 9999, which is likely to be a data issue. Correct for this issue by removing these rows when estimating the average days customers are reallocated to a new node.
+
+````sql
+WITH cte AS (
+  SELECT
+  	*
+  	, EXTRACT(YEAR FROM start_date) AS start_year
+  	, EXTRACT(YEAR FROM end_date) AS end_year
+  FROM data_bank.customer_nodes
+)
+
+SELECT 
+	ROUND(AVG(end_date - start_date), 0) AS avg_days
+FROM cte
+WHERE end_year != 9999;
+````
+
+| avg_days |
+| -------- |
+| 15       |
+
+Observe a corrected estimate of an average of 15 days to reallocate customers to a different node.
+
+***
+
+**5. What is the median, 80th and 95th percentile for this same reallocation days metric for each region?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	*
+  	, end_date - start_date AS day_diff
+  FROM data_bank.customer_nodes
+  WHERE EXTRACT(YEAR FROM end_date) != 9999
+)
+
+SELECT 
+	PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY day_diff) AS "Median"
+  	, PERCENTILE_CONT(0.8) WITHIN GROUP(ORDER BY day_diff) AS "80th Percentile"
+  	, PERCENTILE_CONT(0.95) WITHIN GROUP(ORDER BY day_diff) AS "95th Percentile"
+FROM cte;
+````
+
+#### Code Explanation
+- Notice the new PERCENTILE_CONT statement, which estimates the percentile for a continuous variable, which in this case represents the difference between the start and end dates.
+
+| Median | 80th Percentile | 95th Percentile |
+| ------ | --------------- | --------------- |
+| 15     | 23              | 28              |
+
+---
+
+#### Answer
+From the query above, observe the following reallocation metrics for the following percentiles:
+- Median (50%) = 15 days
+- 80th Percentile = 23 days
+- 95th Percentile = 28 days
 
 ---
 
@@ -145,7 +239,7 @@ Looking at the query above, total and unique customer counts seem to follow the 
 
 ### B. Customer Transactions
 
-**1. blank**
+**1. What is the unique count and total amount for each transaction type?**
 
 ***
 
