@@ -24,6 +24,17 @@ Data Bank wants to increase their total customer base but also need help trackin
 ## Entity Relationship Diagram
 <image src = "https://user-images.githubusercontent.com/81607668/129744449-37b3229b-80b2-4cce-b8e0-707d7f48dcec.png" alt = "Image" width = "500" height = "260">
 
+Data is stored off of a network of 'nodes' where both money and data is stored. There are 5 regions for some of the major continents of the world:
+1. Africa
+2. America
+3. Asia
+4. Europe
+5. Oceania
+
+The second table contains customer nodes, where each customer is randomly distributed across the nodes according to their region. It is not clear what the start and end dates are, since the differences in dates seem quite small for bank accounts, which are generally held for a longer period of time. 
+
+The last table stores all customer deposits, withdrawals, and purchases made using ther Data Bank debit card. It is also unclear what currency the customers are using.
+
 ***
 
 ## Solutions
@@ -38,15 +49,97 @@ Execute the queries using PostgreSQL on DB Fiddle.
 **1. How many unique nodes are there on the Data Bank system?**
 
 ````sql
-
+SELECT COUNT(DISTINCT node_id) AS node_count
+FROM data_bank.customer_nodes;
 ````
 
-#### Answer
-
+| node_count |
+| ---------- |
+| 5          |
 
 ---
 
+#### Answer
+There are 5 unique customer nodes in the Data Bank system.
 
+---
+
+***
+
+**2. What is the number of nodes per region?**
+
+````sql
+SELECT
+    a.region_id
+    , b.region_name
+    , COUNT(DISTINCT a.node_id) AS unique_count
+    , COUNT(a.node_id) AS total_count
+FROM data_bank.customer_nodes a
+LEFT JOIN data_bank.regions b
+ON a.region_id = b.region_id
+GROUP BY a.region_id, b.region_name
+ORDER BY a.region_id, b.region_name;
+````
+
+| region_id | region_name | unique_count | total_count |
+| --------- | ----------- | ------------ | ----------- |
+| 1         | Australia   | 5            | 770         |
+| 2         | America     | 5            | 735         |
+| 3         | Africa      | 5            | 714         |
+| 4         | Asia        | 5            | 665         |
+| 5         | Europe      | 5            | 616         | 
+
+---
+
+#### Answer
+The question did not specify whether they wanted the count of unique or total nodes by each region, so ran both counts. From the query above, total count of nodes in each region ranges from 616-770, where Australia has the most and Europe the least. However, each region has 5 unique nodes each.
+
+---
+
+***
+
+**3. How many customers are allocated to each region?**
+
+````sql
+SELECT
+    a.region_id
+    , b.region_name
+    , COUNT(DISTINCT a.customer_id) AS unique_count
+    , COUNT(a.customer_id) AS total_count
+FROM data_bank.customer_nodes a
+LEFT JOIN data_bank.regions b
+ON a.region_id = b.region_id
+GROUP BY a.region_id, b.region_name
+ORDER BY a.region_id, b.region_name;
+````
+
+| region_id | region_name | unique_count | total_count |
+| --------- | ----------- | ------------ | ----------- |
+| 1         | Australia   | 110          | 770         |
+| 2         | America     | 105          | 735         |
+| 3         | Africa      | 102          | 714         |
+| 4         | Asia        | 95           | 665         |
+| 5         | Europe      | 88           | 616         |
+
+---
+
+#### Answer
+Looking at the query above, total and unique customer counts seem to follow the pattern of total nodes above in question 3.
+
+---
+
+***
+
+**4. How many days on average are customers reallocated to a different node?**
+
+````sql
+
+````
+
+
+#### Answer
+
+---
 
 ***
 
