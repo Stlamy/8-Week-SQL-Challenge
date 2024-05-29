@@ -398,13 +398,73 @@ Notice the LAG statement in the cte section, which pulls the previous balance wh
 **5. What is the percentage of customers who increase their closing balance by more than 5%?**
 
 ````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, EXTRACT(YEAR FROM txn_date) AS txn_year
+  	, EXTRACT(MONTH FROM txn_date) AS txn_month
+  	, CASE WHEN
+  		txn_type LIKE 'deposit' THEN txn_amount
+  		ELSE txn_amount * (-1) END AS balance
+  FROM data_bank.customer_transactions
+), cte2 AS (
+  SELECT
+	customer_id
+    , txn_year
+    , txn_month
+    , SUM(balance) AS initial_balance
+  FROM cte1
+  GROUP BY customer_id, txn_year, txn_month
+  ORDER BY customer_id, txn_year, txn_month
+), cte3 AS (
+  SELECT
+  	customer_id
+  	, txn_year
+  	, txn_month
+  	, initial_balance
+  	, LAG(initial_balance, 1) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment1
+  	, LAG(initial_balance, 2) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment2
+  	, LAG(initial_balance, 3) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment3
+  FROM cte2
+), cte AS (
+  SELECT
+	customer_id
+  	, txn_year
+  	, txn_month
+  	, (initial_balance
+       + COALESCE(balance_adjustment1, 0)
+       + COALESCE(balance_adjustment2, 0)
+       + COALESCE(balance_adjustment3, 0)) AS final_balance
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY txn_month DESC) AS balance_order
+  FROM cte3
+), cte_initial1 AS (
+  SELECT
+  	*
+  	, DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY txn_date) AS first_deposit
+  FROM data_bank.customer_transactions
+  WHERE txn_type LIKE 'deposit'
+), cte_initial AS (
+  SELECT
+  	*
+  FROM cte_initial1
+  WHERE first_deposit = 1
+), cte_final AS (
+  SELECT
+  	(final_balance - txn_amount)*100.0/txn_amount AS balance_increase
+  FROM cte a
+  LEFT JOIN cte_initial b
+  ON a.customer_id = b.customer_id
+  WHERE a.balance_order = 1
+)
 
+SELECT
+	COUNT(balance_increase) AS balance_count
+FROM cte_final
+WHERE balance_increase >= 5;
 ````
 
-- Note: Query output has been omitted for brevity.
-
-#### Code Explanation
-
+#### Answer
+This question is very confusing as it does not define the 'time period' to compare balances to determine an increase in customers' closing balances. In theory, the query that would use to estimate this question would require either the LAG() statement or the DENSE_RANK() statement in order to compare balances between sequential months. Assuming the question is asking for an increase in closing balance from when they first open their account and the latest month available. Again, this is not the most elegant solution, but there are two CTE processes; the first is identical to question 4, while the second extracts the initial deposit for each customer. In the final CTE, these two parts are combined into a single table and estimates the balance increase rate. Finally, count the number of customers with balance increases greater than 5 from their initial deposit to their last.
 
 ***
 
