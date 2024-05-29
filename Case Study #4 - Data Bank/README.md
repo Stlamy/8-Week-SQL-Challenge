@@ -241,11 +241,178 @@ From the query above, observe the following reallocation metrics for the followi
 
 **1. What is the unique count and total amount for each transaction type?**
 
+````sql
+SELECT
+	txn_type
+	, COUNT(txn_type) AS txn_count
+	, SUM(txn_amount) AS txn_total
+FROM data_bank.customer_transactions
+GROUP BY txn_type
+ORDER BY txn_total DESC;
+````
+
+| txn_type   | txn_count | txn_total |
+| ---------- | --------- | --------- |
+| deposit    | 2671      | 1359168   |
+| purchase   | 1617      | 806537    |
+| withdrawal | 1580      | 793003    |
+
+---
+
+#### Answer
+The most frequent transaction type is deposits at 2,671 total transactions and 1,359,168 in total transaction amount. The least frequent transaction is withdrawals at 1,580 total transactions, with 793,003 in total transaction amount. Purchases are in between, but much closer to withdrawals compared to deposits, which means customers tend to hold their finances in Data Bank rather than use it as a spending account. 
+
+***
+
+**2. What is the average total historical deposit counts and amounts for all customers?**
+
+````sql
+WITH cte AS (
+  SELECT
+  	customer_id
+  	, COUNT(txn_type) AS dep_count
+  	, AVG(txn_amount) AS avg_deposit
+  FROM data_bank.customer_transactions
+  WHERE txn_type LIKE 'deposit'
+  GROUP BY customer_id
+  ORDER BY customer_id
+)
+
+SELECT
+	ROUND(AVG(dep_count), 0) AS dep_count
+	, ROUND(AVG(avg_deposit), 2) AS avg_deposit
+FROM cte;
+````
+
+| dep_count  | avg_deposit |
+| ---------- | ----------- |
+| 5          | 508.61      |
+
+---
+
+#### Answer
+Data Bank customers, on average, made 5 deposits of 508.61 for each deposit transaction.
+
+***
+
+**3. For each month - how many Data Bank customers make more than 1 deposit and either 1 purchase or 1 withdrawal in a single month?**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, EXTRACT(MONTH FROM txn_date) AS txn_month
+  	, CASE WHEN txn_type LIKE 'deposit' THEN 1 ELSE 0 END AS deposit_flag
+  	, CASE WHEN txn_type NOT LIKE 'deposit' THEN 1 ELSE 0 END AS txn_flag
+  FROM data_bank.customer_transactions
+), cte AS (
+  SELECT
+  	customer_id
+  	, txn_month
+  	, SUM(deposit_flag) AS total_deposit
+  	, SUM(txn_flag) AS other_txn
+  FROM cte1
+  GROUP BY customer_id, txn_month
+  ORDER BY customer_id, txn_month
+) 
+
+SELECT
+	txn_month
+	, COUNT(DISTINCT customer_id) AS customer_count
+FROM cte
+WHERE total_deposit > 1 AND other_txn = 1
+GROUP BY txn_month
+ORDER BY txn_month;
+````
+
+| txn_month | customer_count |
+| --------- | -------------- |
+| 1         | 53             |
+| 2         | 36             |
+| 3         | 38             |
+| 4         | 22             |
+
+---
+
+#### Answer
+From the query above:
+- In January, there were 53 customers with more than 1 deposit and exactly 1 purchase or withdrawal.
+- In February, there were 36 customers with more than 1 deposit and exactly 1 purchase or withdrawal.
+- In March, there were 38 customers with more than 1 deposit and exactly 1 purchase or withdrawal.
+- In April, there were 22 customers with more than 1 deposit and exactly 1 purchase or withdrawal.
+
+***
+
+**4. What is the closing balance for each customer at the end of the month?**
+
+````sql
+WITH cte1 AS (
+  SELECT
+  	*
+  	, EXTRACT(YEAR FROM txn_date) AS txn_year
+  	, EXTRACT(MONTH FROM txn_date) AS txn_month
+  	, CASE WHEN
+  		txn_type LIKE 'deposit' THEN txn_amount
+  		ELSE txn_amount * (-1) END AS balance
+  FROM data_bank.customer_transactions
+), cte2 AS (
+  SELECT
+	customer_id
+    , txn_year
+    , txn_month
+    , SUM(balance) AS initial_balance
+  FROM cte1
+  GROUP BY customer_id, txn_year, txn_month
+  ORDER BY customer_id, txn_year, txn_month
+), cte AS (
+  SELECT
+  	customer_id
+  	, txn_year
+  	, txn_month
+  	, initial_balance
+  	, LAG(initial_balance, 1) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment1
+  	, LAG(initial_balance, 2) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment2
+  	, LAG(initial_balance, 3) OVER (PARTITION BY customer_id ORDER BY customer_id) AS balance_adjustment3
+  FROM cte2
+)
+
+SELECT
+	customer_id
+  	, txn_year
+  	, txn_month
+  	, (initial_balance
+       + COALESCE(balance_adjustment1, 0)
+       + COALESCE(balance_adjustment2, 0)
+       + COALESCE(balance_adjustment3, 0)) AS final_balance
+FROM cte;
+````
+
+- Note: Query output has been omitted for brevity.
+
+#### Code Explanation
+This is most likely not the most elegant solution to this question, as balance adjustments are made manually rather than using SQL statements. 
+Notice the LAG statement in the cte section, which pulls the previous balance where available across customer_id and transaction month. This allows operations between the previous month's balance and the current month's balance to estimate changes in the actual month-end balance. However, since that only brings in the previous month's balance, previous month adjustments are brought into each row using different offset values, since there are only 4 months included in this dataset. By adding the row values across all 4 columns (using the COALESCE statement to ensure that 'null' values are counted as 0 to avoid null output), the query outputs the monthly balance based on previous month observations where available. 
+
+***
+
+**5. What is the percentage of customers who increase their closing balance by more than 5%?**
+
+````sql
+
+````
+
+- Note: Query output has been omitted for brevity.
+
+#### Code Explanation
+
+
 ***
 
 ### C. Data Allocation Challenge
 
 **1. blank**
+
+
 
 ***
 
