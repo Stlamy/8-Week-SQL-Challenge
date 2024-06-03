@@ -124,19 +124,18 @@ CREATE TEMP TABLE clean_weekly_sales AS
 **1. What day of the week is used for each week_date value?**
 
 ````sql
-
+SELECT DISTINCT TO_CHAR(week_date, 'day') AS week_day
+FROM clean_weekly_sales;
 ````
 
-| txn_type   | txn_count | txn_total |
-| ---------- | --------- | --------- |
-| deposit    | 2671      | 1359168   |
-| purchase   | 1617      | 806537    |
-| withdrawal | 1580      | 793003    |
+| week_day   |
+| ---------- |
+| monday     |
 
 ---
 
 #### Answer
-blank
+Each day used in the week_date value appears to be 'monday'.
 
 ***
 
