@@ -79,7 +79,7 @@ In a single query, perform the following operations and generate a new table in 
 ````sql
 CREATE TEMP TABLE clean_weekly_sales AS
 	SELECT
-		TO_DATE(week_date, 'DD/MM/YY')
+		TO_DATE(week_date, 'DD/MM/YY') AS week_date
 		, EXTRACT(WEEK FROM TO_DATE(week_date, 'DD/MM/YY')) AS week_number
         	, EXTRACT(MONTH FROM TO_DATE(week_date, 'DD/MM/YY')) AS month_number
         	, EXTRACT(YEAR FROM TO_DATE(week_date, 'DD/MM/YY')) AS year_number
@@ -102,7 +102,7 @@ CREATE TEMP TABLE clean_weekly_sales AS
 
 #### Answer
 
-| to_date                  | week_number | month_number | year_number | region | platform | segment | age_band     | demographic | transactions | avg_transaction | sales    |
+| week_date                  | week_number | month_number | year_number | region | platform | segment | age_band     | demographic | transactions | avg_transaction | sales    |
 | ------------------------ | ----------- | ------------ | ----------- | ------ | -------- | ------- | ------------ | ----------- | ------------ | --------------- | -------- |
 | 2020-08-31T00:00:00.000Z | 36          | 8            | 2020        | ASIA   | Retail   | C3      | Retirees     | Couples     | 120631       | 30.31           | 3656163  |
 | 2020-08-31T00:00:00.000Z | 36          | 8            | 2020        | ASIA   | Retail   | F1      | Young Adults | Families    | 31574        | 31.56           | 996575   |
