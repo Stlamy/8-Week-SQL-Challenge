@@ -276,38 +276,154 @@ ORDER BY region, month_number;
 
 ***
 
-Observe the resulting table from the query above for total sales by region and month.
+Observe the resulting table from the query above for total sales by region and month. All continents/countries provided in the data set have sales recorded between March and September.
 
 **5. What is the total count of transactions for each platform?**
 
 ````sql
-
+SELECT
+	platform
+	, SUM(transactions) AS total_transactions
+FROM clean_weekly_sales
+GROUP BY platform
+ORDER BY platform;
 ````
 
+| platform    | total_transactions |
+| ----------- | -----------------  |
+| Retail      | 1081934227         |
+| Shopify     | 5925169            |
+
+---
+
 #### Answer
-blank
+Retail sales outpace Shopify sales by over 180 percentage points and represent the majority share of transactions for Data Mart.
 
 ***
 
 **6. What is the percentage of sales for Retail vs Shopify for each month?**
 
 ````sql
+WITH cte_retail AS (
+  SELECT
+	year_number
+	, month_number
+  	, SUM(sales) AS retail_sales
+  FROM clean_weekly_sales
+  WHERE platform LIKE 'Retail'
+  GROUP BY year_number, month_number
+  ORDER BY year_number, month_number)
+, cte_shopify AS (
+  SELECT
+  	year_number
+	, month_number
+  	, SUM(sales) AS shopify_sales
+  FROM clean_weekly_sales
+  WHERE platform LIKE 'Shopify'
+  GROUP BY year_number, month_number
+  ORDER BY year_number, month_number)
+, cte_total AS (
+  SELECT
+	year_number
+	, month_number
+  	, SUM(sales) AS total_sales
+  FROM clean_weekly_sales
+  GROUP BY year_number, month_number
+  ORDER BY year_number, month_number)
 
+SELECT
+	a.year_number
+	, a.month_number
+	, ROUND((b.retail_sales * 100.0) / a.total_sales, 2) AS retail_share
+    	, ROUND((c.shopify_sales  * 100.0) / a.total_sales, 2) AS shopify_share
+FROM cte_total a
+LEFT JOIN cte_retail b
+ON a.year_number = b.year_number AND a.month_number = b.month_number
+LEFT JOIN cte_shopify c
+ON a.year_number = c.year_number AND a.month_number = c.month_number
+ORDER BY a.year_number, a.month_number;
 ````
 
+
+| year_number | month_number | retail_share | shopify_share |
+| ----------- | ------------ | ------------ | ------------- |
+| 2018        | 3            | 97.92        | 2.08          |
+| 2018        | 4            | 97.93        | 2.07          |
+| 2018        | 5            | 97.73        | 2.27          |
+| 2018        | 6            | 97.76        | 2.24          |
+| 2018        | 7            | 97.75        | 2.25          |
+| 2018        | 8            | 97.71        | 2.29          |
+| 2018        | 9            | 97.68        | 2.32          |
+| 2019        | 3            | 97.71        | 2.29          |
+| 2019        | 4            | 97.80        | 2.20          |
+| 2019        | 5            | 97.52        | 2.48          |
+| 2019        | 6            | 97.42        | 2.58          |
+| 2019        | 7            | 97.35        | 2.65          |
+| 2019        | 8            | 97.21        | 2.79          |
+| 2019        | 9            | 97.09        | 2.91          |
+| 2020        | 3            | 97.30        | 2.70          |
+| 2020        | 4            | 96.96        | 3.04          |
+| 2020        | 5            | 96.71        | 3.29          |
+| 2020        | 6            | 96.80        | 3.20          |
+| 2020        | 7            | 96.67        | 3.33          |
+| 2020        | 8            | 96.51        | 3.49          |
+
+---
+
 #### Answer
-blank
+From the table resulting from the query above, Shopify sales represent at most 3.49% of total share by month for Data Mart across all months available in the dataset. However, notice that the Shopify share of sales increasing over time.
 
 ***
 
 **7. What is the percentage of sales by demographic for each year in the dataset?**
 
 ````sql
+WITH cte_couple AS (
+  SELECT
+	year_number
+  	, SUM(sales) AS couple_sales
+  FROM clean_weekly_sales
+  WHERE demographic LIKE 'Couples'
+  GROUP BY year_number
+  ORDER BY year_number)
+, cte_families AS (
+  SELECT
+  	year_number
+  	, SUM(sales) AS family_sales
+  FROM clean_weekly_sales
+  WHERE demographic LIKE 'Families'
+  GROUP BY year_number
+  ORDER BY year_number)
+, cte_total AS (
+  SELECT
+	year_number
+  	, SUM(sales) AS total_sales
+  FROM clean_weekly_sales
+  GROUP BY year_number
+  ORDER BY year_number)
 
+SELECT
+	a.year_number
+	, ROUND((b.couple_sales * 100.0) / a.total_sales, 2) AS couple_share
+    	, ROUND((c.family_sales  * 100.0) / a.total_sales, 2) AS family_share
+FROM cte_total a
+LEFT JOIN cte_couple b
+ON a.year_number = b.year_number
+LEFT JOIN cte_families c
+ON a.year_number = c.year_number
+ORDER BY a.year_number;
 ````
 
+| year_number | couple_share | family_share |
+| ----------- | ------------ | ------------ |
+| 2018        | 26.38        | 73.62        |
+| 2019        | 27.28        | 72.72        |
+| 2020        | 28.72        | 71.28        |
+
+---
+
 #### Answer
-blank
+From the resulting table from the SQL query above, families represent the largest share of sales by year for Data Mart. Couple share has been increasing over time, but they still represent under 30% of total yearly sales. This seems intuitive, as family households are larger than those for couples and should result in greater spending.
 
 ***
 
